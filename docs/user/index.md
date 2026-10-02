@@ -1,13 +1,14 @@
 ---
 title: 从第一次输入开始
 order: 0
-description: 青简输入法使用文档（macOS 与 Windows 测试版）：安装、按键、译词与生词、云联想、词库、数据位置与卸载。
+description: 青简输入法使用文档：安装、按键、译词与生词、云联想、词库、数据位置与卸载。
 ---
 
 青简是一个拼音输入法。输入时，候选词旁边附带一条所学语言的译词，在输入的同时记住一个词。
 它首先是一个完整的输入法：整句输入、简拼、拼写纠错、模糊音、双拼、英文模式，全部在本机完成，不上传数据。
 
-macOS 版与 Windows 版均为测试版，两个平台功能相同，按键按各自系统的习惯设计，见 [按键与快捷键](getting-started/keys.md)。Linux 版刚起步，使用 Fcitx5 默认候选面板，见 [Linux](getting-started/linux.md)。
+macOS 版与 Windows 版均为测试版，两个平台功能相同，按键按各自系统的习惯设计，见 [按键与快捷键](getting-started/keys.md)。
+Android 版处于早期测试阶段，安装与启用方式见 [Android](getting-started/android.md)。Linux 版刚起步，使用 Fcitx5 默认候选面板，见 [Linux](getting-started/linux.md)。
 
 ## 从哪里开始
 

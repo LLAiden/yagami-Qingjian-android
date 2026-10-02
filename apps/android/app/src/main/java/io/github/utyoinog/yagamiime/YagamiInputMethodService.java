@@ -1,0 +1,551 @@
+package io.github.utyoinog.yagamiime;
+
+import android.annotation.SuppressLint;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.StateListDrawable;
+import android.inputmethodservice.InputMethodService;
+import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
+import android.text.InputType;
+import android.text.Spannable;
+import android.text.SpannableString;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.RelativeSizeSpan;
+import android.view.Gravity;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.ViewConfiguration;
+import android.view.ViewGroup;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputConnection;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.HorizontalScrollView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
+
+public final class YagamiInputMethodService extends InputMethodService {
+    private static final int BACKGROUND = Color.rgb(209, 213, 219);
+    private static final int KEY_BACKGROUND = Color.rgb(250, 250, 250);
+    private static final int SPECIAL_BACKGROUND = Color.rgb(174, 180, 189);
+    private static final int PRESSED_BACKGROUND = Color.rgb(205, 208, 213);
+    private static final int ACCENT = Color.rgb(49, 92, 74);
+    private static final long DELETE_REPEAT_INTERVAL_MS = 55;
+
+    private final Handler deleteHandler = new Handler(Looper.getMainLooper());
+    private final Runnable beginRepeatedBackspace = this::startRepeatedBackspace;
+    private final Runnable repeatedBackspace = this::repeatBackspace;
+    private NativeBridge nativeBridge;
+    private LinearLayout candidates;
+    private TextView modeKey;
+    private TextView shiftKey;
+    private final List<TextView> letterKeys = new ArrayList<>();
+    private boolean chinese = true;
+    private boolean deletingRepeatedly;
+    private boolean shifted;
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        try {
+            File dictionary = copyAsset("dict.tsv");
+            File glossary = copyAsset("glossary-en.tsv");
+            nativeBridge = new NativeBridge(dictionary.getAbsolutePath(), glossary.getAbsolutePath());
+        } catch (Exception error) {
+            Toast.makeText(this, getString(R.string.startup_failed, error.getMessage()), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Override
+    public View onCreateInputView() {
+        LinearLayout keyboard = new LinearLayout(this);
+        keyboard.setOrientation(LinearLayout.VERTICAL);
+        keyboard.setPadding(dp(3), 0, dp(3), dp(5));
+        keyboard.setBackgroundColor(BACKGROUND);
+        letterKeys.clear();
+
+        HorizontalScrollView scroller = new HorizontalScrollView(this);
+        scroller.setHorizontalScrollBarEnabled(false);
+        scroller.setBackgroundColor(Color.rgb(247, 248, 249));
+        candidates = new LinearLayout(this);
+        candidates.setOrientation(LinearLayout.HORIZONTAL);
+        candidates.setGravity(Gravity.CENTER_VERTICAL);
+        scroller.addView(candidates, new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, dp(58)));
+        keyboard.addView(scroller, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(58)));
+
+        addLetterRow(keyboard, "qwertyuiop", 0);
+        addLetterRow(keyboard, "asdfghjkl", dp(17));
+        addThirdRow(keyboard);
+        addBottomRow(keyboard);
+        updateCandidates();
+        return keyboard;
+    }
+
+    @Override
+    public void onStartInputView(EditorInfo info, boolean restarting) {
+        super.onStartInputView(info, restarting);
+        clearComposition();
+    }
+
+    @Override
+    public void onFinishInput() {
+        stopRepeatedBackspace();
+        clearComposition();
+        super.onFinishInput();
+    }
+
+    @Override
+    public void onDestroy() {
+        stopRepeatedBackspace();
+        if (nativeBridge != null) {
+            nativeBridge.close();
+        }
+        super.onDestroy();
+    }
+
+    private void addLetterRow(LinearLayout keyboard, String letters, int sideInset) {
+        LinearLayout row = row();
+        row.setPadding(sideInset, 0, sideInset, 0);
+        for (int index = 0; index < letters.length(); index++) {
+            char letter = letters.charAt(index);
+            TextView key = key(String.valueOf(letter));
+            key.setTag(letter);
+            letterKeys.add(key);
+            key.setOnClickListener(view -> letter(letter));
+            row.addView(key, weightedKey());
+        }
+        keyboard.addView(row, rowParams());
+    }
+
+    // 触摸监听只接管长按计时，短按与无障碍操作都会回到标准 performClick。
+    @SuppressLint("ClickableViewAccessibility")
+    private void addThirdRow(LinearLayout keyboard) {
+        LinearLayout row = row();
+        shiftKey = specialKey("⇧");
+        shiftKey.setOnClickListener(view -> toggleShift());
+        row.addView(shiftKey, weightedKey(1.35f));
+
+        String letters = "zxcvbnm";
+        for (int index = 0; index < letters.length(); index++) {
+            char letter = letters.charAt(index);
+            TextView key = key(String.valueOf(letter));
+            key.setTag(letter);
+            letterKeys.add(key);
+            key.setOnClickListener(view -> letter(letter));
+            row.addView(key, weightedKey());
+        }
+
+        TextView delete = specialKey("⌫");
+        delete.setOnClickListener(view -> backspace());
+        delete.setOnTouchListener((view, event) -> {
+            if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                stopRepeatedBackspace();
+                view.setPressed(true);
+                deleteHandler.postDelayed(
+                        beginRepeatedBackspace, ViewConfiguration.getLongPressTimeout());
+                return true;
+            }
+            if (event.getActionMasked() == MotionEvent.ACTION_UP) {
+                boolean repeated = deletingRepeatedly;
+                stopRepeatedBackspace();
+                view.setPressed(false);
+                if (!repeated) {
+                    view.performClick();
+                }
+                return true;
+            }
+            if (event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
+                stopRepeatedBackspace();
+                view.setPressed(false);
+                return true;
+            }
+            return true;
+        });
+        row.addView(delete, weightedKey(1.35f));
+        keyboard.addView(row, rowParams());
+    }
+
+    private void addBottomRow(LinearLayout keyboard) {
+        LinearLayout row = row();
+        TextView globe = specialKey("◎");
+        globe.setContentDescription("切换输入法");
+        globe.setOnClickListener(view -> nextInputMethod());
+        row.addView(globe, weightedKey(1.1f));
+
+        modeKey = specialKey("中");
+        modeKey.setTextColor(ACCENT);
+        modeKey.setOnClickListener(view -> toggleMode());
+        row.addView(modeKey, weightedKey(1.1f));
+
+        TextView comma = specialKey("，");
+        comma.setOnClickListener(view -> punctuation(chinese ? "，" : ","));
+        row.addView(comma, weightedKey(0.9f));
+
+        TextView space = key("空格");
+        space.setOnClickListener(view -> space());
+        row.addView(space, weightedKey(4.2f));
+
+        TextView period = specialKey("。");
+        period.setOnClickListener(view -> punctuation(chinese ? "。" : "."));
+        row.addView(period, weightedKey(0.9f));
+
+        TextView enter = key("换行", ACCENT);
+        enter.setTextColor(Color.WHITE);
+        enter.setTextSize(14);
+        enter.setOnClickListener(view -> enter());
+        row.addView(enter, weightedKey(1.5f));
+        keyboard.addView(row, rowParams());
+    }
+
+    private void letter(char letter) {
+        InputConnection connection = getCurrentInputConnection();
+        if (connection == null) {
+            return;
+        }
+        char output = shifted ? Character.toUpperCase(letter) : letter;
+        if (shifted) {
+            setShifted(false);
+        }
+        if (!chinese || nativeBridge == null || Character.isUpperCase(output)) {
+            if (chinese && hasComposition()) {
+                commitCandidate(0);
+            }
+            connection.commitText(String.valueOf(output), 1);
+            return;
+        }
+        nativeBridge.push(output);
+        updateCandidates();
+    }
+
+    private void toggleShift() {
+        setShifted(!shifted);
+    }
+
+    private void setShifted(boolean enabled) {
+        shifted = enabled;
+        for (TextView letterKey : letterKeys) {
+            char letter = (char) letterKey.getTag();
+            letterKey.setText(String.valueOf(enabled ? Character.toUpperCase(letter) : letter));
+        }
+        if (shiftKey != null) {
+            shiftKey.setTextColor(enabled ? Color.WHITE : Color.rgb(31, 34, 38));
+            shiftKey.setBackground(keyBackground(enabled ? ACCENT : SPECIAL_BACKGROUND));
+        }
+    }
+
+    private void nextInputMethod() {
+        boolean switched = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+                && switchToNextInputMethod(false);
+        if (!switched) {
+            InputMethodManager manager = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+            manager.showInputMethodPicker();
+        }
+    }
+
+    private void space() {
+        if (chinese && hasComposition()) {
+            commitCandidate(0);
+        } else {
+            commitText(" ");
+        }
+    }
+
+    private void punctuation(String punctuation) {
+        if (chinese && hasComposition()) {
+            commitCandidate(0);
+        }
+        commitText(punctuation);
+    }
+
+    private void enter() {
+        if (chinese && hasComposition() && nativeBridge != null) {
+            String raw = nativeBridge.takeRaw();
+            commitText(raw);
+            updateCandidates();
+            return;
+        }
+        EditorInfo info = getCurrentInputEditorInfo();
+        InputConnection connection = getCurrentInputConnection();
+        if (connection == null) {
+            return;
+        }
+        int action = info == null
+                ? EditorInfo.IME_ACTION_UNSPECIFIED
+                : info.imeOptions & EditorInfo.IME_MASK_ACTION;
+        if (acceptsNewline(info)
+                || action == EditorInfo.IME_ACTION_NONE
+                || action == EditorInfo.IME_ACTION_UNSPECIFIED) {
+            connection.commitText("\n", 1);
+        } else {
+            connection.performEditorAction(action);
+        }
+    }
+
+    private boolean acceptsNewline(EditorInfo info) {
+        if (info == null) {
+            return true;
+        }
+        boolean text = (info.inputType & InputType.TYPE_MASK_CLASS)
+                == InputType.TYPE_CLASS_TEXT;
+        boolean multiline = (info.inputType & (InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                | InputType.TYPE_TEXT_FLAG_IME_MULTI_LINE)) != 0;
+        boolean noEnterAction = (info.imeOptions & EditorInfo.IME_FLAG_NO_ENTER_ACTION) != 0;
+        return text && (multiline || noEnterAction);
+    }
+
+    private void backspace() {
+        InputConnection connection = getCurrentInputConnection();
+        if (connection == null) {
+            return;
+        }
+        if (chinese && nativeBridge != null && nativeBridge.backspace()) {
+            updateCandidates();
+        } else {
+            connection.deleteSurroundingText(1, 0);
+        }
+    }
+
+    private void startRepeatedBackspace() {
+        deletingRepeatedly = true;
+        backspace();
+        deleteHandler.postDelayed(repeatedBackspace, DELETE_REPEAT_INTERVAL_MS);
+    }
+
+    private void repeatBackspace() {
+        if (!deletingRepeatedly) {
+            return;
+        }
+        backspace();
+        deleteHandler.postDelayed(repeatedBackspace, DELETE_REPEAT_INTERVAL_MS);
+    }
+
+    private void stopRepeatedBackspace() {
+        deletingRepeatedly = false;
+        deleteHandler.removeCallbacks(beginRepeatedBackspace);
+        deleteHandler.removeCallbacks(repeatedBackspace);
+    }
+
+    private void toggleMode() {
+        if (hasComposition()) {
+            commitCandidate(0);
+        }
+        chinese = !chinese;
+        modeKey.setText(chinese ? "中" : "EN");
+        modeKey.setTextColor(chinese ? ACCENT : Color.DKGRAY);
+    }
+
+    private void commitCandidate(int index) {
+        if (nativeBridge == null) {
+            return;
+        }
+        String text = nativeBridge.commit(index);
+        if (text.isEmpty()) {
+            text = nativeBridge.takeRaw();
+        }
+        InputConnection connection = getCurrentInputConnection();
+        if (connection != null) {
+            connection.commitText(text, 1);
+        }
+        updateCandidates();
+    }
+
+    private void updateCandidates() {
+        if (candidates == null) {
+            return;
+        }
+        candidates.removeAllViews();
+        if (nativeBridge == null || !chinese) {
+            hint("English");
+            return;
+        }
+        try {
+            JSONObject snapshot = new JSONObject(nativeBridge.snapshot());
+            String preedit = snapshot.optString("preedit");
+            InputConnection connection = getCurrentInputConnection();
+            if (connection != null) {
+                if (preedit.isEmpty()) {
+                    connection.setComposingText("", 1);
+                    connection.finishComposingText();
+                } else {
+                    connection.setComposingText(preedit, 1);
+                }
+            }
+            JSONArray items = snapshot.getJSONArray("candidates");
+            if (items.length() == 0) {
+                hint(preedit.isEmpty() ? getString(R.string.idle_hint) : preedit);
+                return;
+            }
+            for (int index = 0; index < items.length(); index++) {
+                JSONObject item = items.getJSONObject(index);
+                String text = item.getString("text");
+                String gloss = item.optString("gloss");
+                TextView candidate = new TextView(this);
+                candidate.setGravity(Gravity.CENTER);
+                candidate.setPadding(dp(16), dp(3), dp(16), dp(3));
+                candidate.setTextSize(19);
+                candidate.setTextColor(Color.rgb(24, 40, 34));
+                candidate.setBackground(keyBackground(Color.rgb(247, 248, 249)));
+                candidate.setText(candidateText(text, gloss));
+                int selected = index;
+                candidate.setOnClickListener(view -> commitCandidate(selected));
+                candidates.addView(candidate, new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT, dp(58)));
+            }
+        } catch (Exception error) {
+            hint("候选加载失败");
+        }
+    }
+
+    private boolean hasComposition() {
+        if (nativeBridge == null) {
+            return false;
+        }
+        try {
+            return !new JSONObject(nativeBridge.snapshot()).optString("preedit").isEmpty();
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private void clearComposition() {
+        if (nativeBridge != null) {
+            nativeBridge.clear();
+        }
+        InputConnection connection = getCurrentInputConnection();
+        if (connection != null) {
+            connection.setComposingText("", 1);
+            connection.finishComposingText();
+        }
+        updateCandidates();
+    }
+
+    private void commitText(String text) {
+        InputConnection connection = getCurrentInputConnection();
+        if (connection != null) {
+            connection.commitText(text, 1);
+        }
+    }
+
+    private void hint(String text) {
+        TextView hint = new TextView(this);
+        hint.setText(text);
+        hint.setTextSize(15);
+        hint.setTextColor(Color.GRAY);
+        hint.setGravity(Gravity.CENTER_VERTICAL);
+        hint.setPadding(dp(14), 0, 0, 0);
+        candidates.addView(hint, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, dp(58)));
+    }
+
+    private CharSequence candidateText(String text, String gloss) {
+        if (gloss.isEmpty()) {
+            return text;
+        }
+        SpannableString value = new SpannableString(text + "\n" + gloss);
+        int glossStart = text.length() + 1;
+        value.setSpan(new RelativeSizeSpan(0.62f), glossStart, value.length(),
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        value.setSpan(new ForegroundColorSpan(Color.rgb(112, 116, 121)),
+                glossStart, value.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        return value;
+    }
+
+    private LinearLayout row() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER);
+        return row;
+    }
+
+    private TextView key(String label) {
+        return key(label, KEY_BACKGROUND);
+    }
+
+    private TextView specialKey(String label) {
+        TextView key = key(label, SPECIAL_BACKGROUND);
+        key.setTextSize(15);
+        return key;
+    }
+
+    private TextView key(String label, int backgroundColor) {
+        TextView key = new TextView(this);
+        key.setText(label);
+        key.setTextSize(21);
+        key.setTypeface(Typeface.DEFAULT, Typeface.NORMAL);
+        key.setTextColor(Color.rgb(31, 34, 38));
+        key.setGravity(Gravity.CENTER);
+        key.setBackground(keyBackground(backgroundColor));
+        key.setElevation(dp(1));
+        key.setPadding(0, 0, 0, dp(1));
+        key.setClickable(true);
+        key.setFocusable(true);
+        return key;
+    }
+
+    private StateListDrawable keyBackground(int color) {
+        StateListDrawable selector = new StateListDrawable();
+        selector.addState(new int[]{android.R.attr.state_pressed},
+                roundedDrawable(PRESSED_BACKGROUND));
+        selector.addState(new int[]{}, roundedDrawable(color));
+        return selector;
+    }
+
+    private GradientDrawable roundedDrawable(int color) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(color);
+        drawable.setCornerRadius(dp(6));
+        return drawable;
+    }
+
+    private LinearLayout.LayoutParams weightedKey() {
+        return weightedKey(1f);
+    }
+
+    private LinearLayout.LayoutParams weightedKey(float weight) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(45), weight);
+        params.setMargins(dp(3), dp(4), dp(3), dp(3));
+        return params;
+    }
+
+    private LinearLayout.LayoutParams rowParams() {
+        return new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52));
+    }
+
+    private File copyAsset(String name) throws Exception {
+        File directory = new File(getFilesDir(), "yagami-data");
+        if (!directory.exists() && !directory.mkdirs()) {
+            throw new IllegalStateException("无法创建数据目录");
+        }
+        File target = new File(directory, name);
+        if (target.exists() && target.length() > 0) {
+            return target;
+        }
+        try (InputStream input = getAssets().open(name);
+             FileOutputStream output = new FileOutputStream(target)) {
+            byte[] buffer = new byte[32 * 1024];
+            int count;
+            while ((count = input.read(buffer)) >= 0) {
+                output.write(buffer, 0, count);
+            }
+        }
+        return target;
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+}

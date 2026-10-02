@@ -290,6 +290,13 @@ Server 每次轮询比对用户 `dicts` 的路径 / mtime / 长度快照，配�
 DLL 不读文件、不查 mtime。`SessionOpened` 只回过协议版本对得上的 DLL——老的 `open` 是只写不读，
 多回一条会被它当成下一次 `Poll` 的应答而报错，那条连接就废了；老 DLL 从 `ModeSync` 那一拍也能拿到同一份（新字段直接忽略）。
 
+## apps/android
+
+非官方 Android MVP 壳：`YagamiInputMethodService` 用原生 Java View 画软键盘和横向候选栏，JNI crate `yagami-android-native`
+持有 `Engine`。Java 把字母、退格、候选序号喂给 JNI；JNI 返回 JSON 候选快照（拼音、候选文本、单一学习语言译词），
+上屏仍走 Core 的 `commit` / `take_raw`。基础词库与英译 TSV 随 APK 放在 assets，首次启动复制到应用私有目录后加载。
+当前产物含 `arm64-v8a` 与 `x86_64`，构建和安装步骤见 `apps/android/README.md`。
+
 ## assets
 
 - `assets/sample/`：手写样例词库与释义表，不是产品数据。

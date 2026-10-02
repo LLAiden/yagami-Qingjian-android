@@ -1,0 +1,54 @@
+# Yagami Android 源码、JNI 与未签名 Release APK 检查。
+name: android
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  NDK_VERSION: 27.2.12479018
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+          targets: aarch64-linux-android,x86_64-linux-android
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      - name: 安装 Android NDK 与 cargo-ndk
+        shell: bash
+        run: |
+          yes | sdkmanager "ndk;${NDK_VERSION}"
+          echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
+          cargo install cargo-ndk --locked
+
+      - name: 检查 Rust
+        run: |
+          cargo fmt --all --check
+          cargo test -p yagami-android-native --locked
+          cargo clippy -p yagami-android-native --all-targets --locked -- -D warnings
+
+      - name: 编译双 ABI JNI
+        run: cargo ndk -t arm64-v8a -t x86_64 -o apps/android/app/src/main/jniLibs build -p yagami-android-native --release --locked
+
+      - name: 检查并构建 Android
+        working-directory: apps/android
+        run: ./gradlew --no-daemon clean lintRelease assembleRelease

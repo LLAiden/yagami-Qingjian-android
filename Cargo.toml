@@ -13,13 +13,14 @@ members = [
     "crates/qingjian-render",
     "crates/qingjian-update",
     "apps/linux/server", "apps/cli", "apps/macos", "apps/windows/server", "apps/windows/tsf", "apps/windows/settings", "tools/dict-convert", "tools/gloss-gen", "tools/release-sign",
+    "apps/android/native",
 ]
 
 [workspace.package]
 version = "0.1.1"
 edition = "2024"
 license = "GPL-3.0-or-later"
-repository = "https://github.com/qingjian-team/qingjian"
+repository = "https://github.com/Utyoin-OG/yagami-ime-android"
 
 [workspace.lints.clippy]
 all = "warn"

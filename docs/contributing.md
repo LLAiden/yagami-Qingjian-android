@@ -1,5 +1,9 @@
 # 开发约定
 
+> Yagami 是青简的独立 Android 衍生项目。青简上游关于暂不接受 Android 贴图路径与渲染器外部 PR 的限制
+> 不适用于本仓库；平台无关 Core 的约定仍然适用。Yagami 当前 Android 键盘使用原生 View，后续是否迁移到
+> `qingjian-render` 由本项目单独评估。
+
 改代码前先看这一页：架构上不能越的线、代码怎么组织、版本号与提交信息怎么写、改了行为要同步哪些文档。
 设计的来龙去脉在 [design/architecture.md](design/architecture.md)，各 crate 的实现要点在 [notes/crate-notes.md](notes/crate-notes.md)。
 
@@ -14,7 +18,8 @@
   `HashMap<Lang, String>` 这类多语言并列的数据结构，那会在 API 层面把「一次只学一种语言」这条产品原则给破坏掉。翻译是候选词的 annotation（可选、单条）。
 - **输入优先于学习。** 任何为学习功能增加的延迟、弹窗、UI 干扰都是设计错误。翻译查询不能阻塞候选生成，Core 必须能在翻译尚未就绪时先返回候选。
 - **输入方案是配置项，不是模式。** 双拼、注音这类键盘方案放 `[general]` 里当设置，中 / 英切换始终是布尔；新方案不能改变别的方案的既定按键行为（[user/getting-started/keys.md](user/getting-started/keys.md)）。
-- **显示面自绘、控件面原生。** 候选窗、拼音行、状态条这类显示面由渲染器出位图各平台贴图（主题靠它）；偏好设置、菜单、安装器用各平台原生控件。见 [design/rendering.md](design/rendering.md)。
+- **桌面显示面自绘、控件面原生。** 桌面候选窗、拼音行、状态条由渲染器出位图各平台贴图；偏好设置、菜单、安装器用各平台原生控件。
+  Yagami Android 当前使用原生 View 绘制键盘与候选栏。上游方案背景见 [design/rendering.md](design/rendering.md)。
 
 ## 代码组织
 
@@ -44,9 +49,11 @@
 
 ## 版本号
 
+- Yagami Android 使用 `apps/android/app/build.gradle` 中的 `versionName` 与 `versionCode`；正式发布时
+  `versionName` 与标签 `v<版本>` 一致，每次可安装升级都必须递增 `versionCode`。
+- `apps/android/native/Cargo.toml` 的版本与 Android `versionName` 保持一致。
 - `crates/*` 用 `version.workspace = true`；**`apps/*` 各壳是独立发布的产品，写死自己的 `version`**（Windows 读 `server/Cargo.toml`）。
-- 发版之间带 `-dev`（两端都是 `0.1.3-dev`），打包脚本再接 git 短哈希成 `0.1.3-dev-1a2b3c4`（脏加 `+`，Cargo.toml 里只写 `-dev`）。
-- 发版提交去掉 `-dev` 打标签 `v<版本>`（三个平台共用一个 Release；单平台补丁用 `macos-v` / `windows-v` / `linux-v<版本>`），标签后再改成下一个 `-dev`；带 `-dev` 的标签 CI 拒绝；pkg / Inno 只认数字点号。
+- 青简上游桌面壳的 `-dev` 版本与多平台标签规则仅作为保留源码的历史约定，不用于 Yagami Android 发版。
 
 ## 提交信息
 
@@ -68,17 +75,19 @@
 
 ## 提交前检查
 
-- 钩子：`.githooks/pre-commit`（禁装饰性分隔注释 + fmt + clippy）、`.githooks/commit-msg`（提交信息格式）、`.githooks/pre-push`（全 workspace 测试）；`git config core.hooksPath .githooks` 启用一次。
-  两个跑编译的钩子按 `uname` 划平台范围：**非 Apple 平台排除 `qingjian-macos`**（IMK 壳依赖 objc2，在别的平台上是硬 `compile_error!`，
-  排除不掉就整条命令失败），与 [ci.yml](../.github/workflows/ci.yml) 三个 job 的划分一致；Windows 上 pre-push 另设 `QINGJIAN_UIACCESS=0`
-  （Server 的 build.rs 嵌 uiAccess manifest，没签名的测试二进制起不来，os error 740）。
+- 钩子：`.githooks/pre-commit`（禁装饰性分隔注释 + fmt + Android JNI clippy）、`.githooks/commit-msg`（提交信息格式）、
+  `.githooks/pre-push`（Android JNI 测试）；`git config core.hooksPath .githooks` 启用一次。完整 Android NDK 与 Gradle 检查由
+  [android.yml](../.github/workflows/android.yml) 执行。
 - 排序 / 整句 / 纠错的改动先跑 `apps/cli` 再合。
 
 ## CI 与发版
 
-- CI 三个 job（Linux 全量 / macOS 壳 / Windows 三 crate）都 `--locked`；Dependabot 升 actions；每周 `cargo audit`。
-- 发版：推 `<平台>-v<版本>` 标签触发 `release.yml`，门禁是版本号 = 标签且不带 -dev、标签在 main 上、产品数据按 SHA256SUMS 校验。
-- CHANGELOG 手写、发版时由维护者统一改（PR 不动它）。流程与 Secrets 见 [notes/release.md](notes/release.md)。
+- `android.yml` 在 `main` 推送和 PR 上检查 Rust 格式、Android JNI 测试与 clippy，并构建双 ABI JNI 和未签名 Release APK；依赖均使用锁文件。
+- `audit.yml` 每周检查 Rust 依赖安全公告；Dependabot 负责更新 GitHub Actions。
+- 当前不由 CI 发布或签名 APK。维护者使用离线保管的正式 keystore 本地签名，完成真机验证后再手动创建
+  `v<版本>` Release，并同时发布该提交的源代码。签名环境变量和升级约束见
+  [Android 构建说明](../apps/android/README.md)。
+- 上游桌面端的 `release.yml`、多平台标签与 Secrets 流程不适用于本仓库。
 
 ## 外部 PR
 
@@ -88,4 +97,4 @@
   PR 的「怎么验证的」写明系统版本、应用与操作步骤。编译与 CI 通过不算验证。没验过的修复发出去，报 issue 的人升级后还得再报一次。
   复现不了的（没有那个应用或系统）不提修复：把分析写在 issue 里，或者提只加日志、不改行为的 PR。
   不改行为的改动（日志、注释、文档）与有测试 / 回放兜底的 Core 逻辑不受此限。
-- 主题与自绘渲染器（`crates/qingjian-render`、各壳的贴图路径、主题文件）还在测试，这部分暂不接受 PR；稳定一版后再开。
+- Android 壳、构建、文档与测试均接受 PR；涉及平台无关 Core 的改动应与 Android 平台改动分开提交并说明同步上游的计划。

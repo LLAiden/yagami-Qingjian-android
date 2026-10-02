@@ -1,0 +1,21 @@
+[package]
+name = "yagami-android-native"
+description = "Yagami Android 输入法的 JNI 平台壳"
+version = "0.1.4"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[lints]
+workspace = true
+
+[dependencies]
+jni = "0.21"
+qingjian-core.workspace = true
+qingjian-dictionary.workspace = true
+qingjian-translate.workspace = true
+serde.workspace = true
+serde_json.workspace = true

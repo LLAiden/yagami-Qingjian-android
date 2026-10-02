@@ -1,0 +1,63 @@
+plugins {
+    id "com.android.application"
+}
+
+def qingjianAssets = layout.buildDirectory.dir("generated/qingjianAssets")
+def releaseKeystore = System.getenv("YAGAMI_KEYSTORE_FILE")
+def releaseStorePassword = System.getenv("YAGAMI_KEYSTORE_PASSWORD")
+def releaseKeyAlias = System.getenv("YAGAMI_KEY_ALIAS")
+def releaseKeyPassword = System.getenv("YAGAMI_KEY_PASSWORD")
+def hasReleaseSigning = [
+        releaseKeystore,
+        releaseStorePassword,
+        releaseKeyAlias,
+        releaseKeyPassword,
+].every { value -> value != null && !value.isBlank() }
+
+tasks.register("prepareQingjianAssets", Copy) {
+    from(rootProject.file("../../assets/lexicon/dict.tsv"))
+    from(rootProject.file("../../assets/glossary/glossary-en.tsv"))
+    into(qingjianAssets)
+}
+
+android {
+    namespace "io.github.utyoinog.yagamiime"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "io.github.utyoinog.yagamiime"
+        minSdk 26
+        targetSdk 35
+        versionCode 5
+        versionName "0.1.4"
+    }
+
+    sourceSets {
+        main.jniLibs.srcDirs = ["src/main/jniLibs"]
+        main.assets.srcDir(qingjianAssets)
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            release {
+                storeFile file(releaseKeystore)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+}
+
+tasks.named("preBuild").configure {
+    dependsOn("prepareQingjianAssets")
+}
