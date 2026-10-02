@@ -2,9 +2,9 @@
 
 Yagami 是一个面向 Android 的拼音与语言学习输入法，基于Qingjian
 [青简](https://github.com/qingjian-team/qingjian) 开源核心开发。本项目是独立维护的非官方衍生版本，
-与 qingjian-team 不存在隶属、授权或官方发布关系。
+与 qingjian-team 不存在隶属、授权或官方发布关系。在Qingjian基础上开发Android移动端，增加系列手机适配功能，提供安装手机直装apk。
 
-## 当前功能
+## 新增功能
 
 - 全拼输入、候选与英语译词
 - 点击候选或空格上屏
@@ -15,8 +15,7 @@ Yagami 是一个面向 Android 的拼音与语言学习输入法，基于Qingjia
 - 长按空格切换至其他系统输入法
 - `arm64-v8a` 与 `x86_64`，Android 8.0 及以上
 
-当前版本已在 HUAWEI Mate 40 Pro、HarmonyOS 4.2.0 的 Android 兼容环境中完成真机验证。
-HarmonyOS NEXT 不支持 Android APK，不在支持范围内。
+关于鸿蒙：当前版本已在 HUAWEI Mate 40 Pro、HarmonyOS 4.2.0 的 Android 兼容环境中完成真机验证。
 
 ## 下载、安装与使用
 
