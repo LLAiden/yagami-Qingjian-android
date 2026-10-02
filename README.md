@@ -1,8 +1,10 @@
 # Yagami_Qingjian 输入法
+> 基于青简开源核心开发的Android 拼音输入法，支持 Android 8.0+ 与 HarmonyOS Android 兼容环境。
+[下载最新版 APK](https://github.com/Utyoin-OG/yagami-Qingjian-android/releases/latest)
 
 Yagami 是一个面向 Android 的拼音与语言学习输入法，基于Qingjian
-[青简](https://github.com/qingjian-team/qingjian) 开源核心开发。本项目是独立维护的非官方衍生版本，
-与 qingjian-team 不存在隶属、授权或官方发布关系。
+[青简](https://github.com/qingjian-team/qingjian) 开源核心开发。
+本项目是独立维护的非官方衍生版本，与 qingjian-team 不存在隶属、授权或官方发布关系。
 在青简Qingjian基础上开发Android移动端，增加系列手机适配功能，提供安装手机直装apk。
 
 ## 新增功能
