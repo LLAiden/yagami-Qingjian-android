@@ -25,7 +25,7 @@ Yagami 输入法支持 **Android 8.0 及以上版本**。带有 Android 兼容�
 
 ### 第一步：下载 APK
 
-1. 使用手机浏览器打开 [Yagami 输入法发布页面](https://github.com/Utyoin-OG/yagami-ime-android/releases/latest)。
+1. 使用手机浏览器打开 [Yagami 输入法发布页面](https://github.com/Utyoin-OG/yagami-Qingjian-android/releases/latest)。
 2. 找到页面中的 **Assets**（发布文件）区域。如果文件列表没有展开，点击 `Assets` 将其展开。
 3. 点击名称类似下面这样的文件：
 
@@ -43,7 +43,7 @@ Yagami 输入法支持 **Android 8.0 及以上版本**。带有 Android 兼容�
 >
 > `Source code (zip)` 和 `Source code (tar.gz)` 是源代码压缩包，也不能直接安装到手机。
 
-请只从本仓库的 [GitHub Releases](https://github.com/Utyoin-OG/yagami-ime-android/releases) 页面下载安装包，
+请只从本仓库的 [GitHub Releases](https://github.com/Utyoin-OG/yagami-Qingjian-android/releases) 页面下载安装包，
 不要从不明网盘、群聊文件或第三方下载站下载安装，以免安装到被修改过的版本。
 
 ### 第二步：允许安装 APK
@@ -55,7 +55,7 @@ Yagami 输入法支持 **Android 8.0 及以上版本**。带有 Android 兼容�
    - 允许当前使用的浏览器或文件管理器“安装未知应用”；
    - 返回上一页，再次点击 APK 安装。
 4. 如果系统提示这是来自应用商店以外的应用，请先确认下载地址确实属于
-   `github.com/Utyoin-OG/yagami-ime-android`，确认无误后再继续安装。
+   `github.com/Utyoin-OG/yagami-Qingjian-android`，确认无误后再继续安装。
 5. 出现“应用已安装”后，点击“打开”。
 
 不同品牌手机的设置名称可能略有不同。如果没有自动出现设置入口，可以在系统设置中搜索
@@ -100,7 +100,7 @@ Yagami 输入法支持 **Android 8.0 及以上版本**。带有 Android 兼容�
 
 ### 更新到新版本
 
-发布新版本后，仍然从 [GitHub Releases](https://github.com/Utyoin-OG/yagami-ime-android/releases/latest)
+发布新版本后，仍然从 [GitHub Releases](https://github.com/Utyoin-OG/yagami-Qingjian-android/releases/latest)
 下载最新的 APK，然后直接点击安装即可覆盖升级。
 
 升级时请注意：
