@@ -38,7 +38,7 @@ jobs:
       - name: 安装 Android NDK 与 cargo-ndk
         shell: bash
         run: |
-          yes | sdkmanager "ndk;${NDK_VERSION}"
+          sdkmanager --install "ndk;${NDK_VERSION}"
           echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
           cargo install cargo-ndk --locked
 
