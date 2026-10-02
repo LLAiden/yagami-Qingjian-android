@@ -42,6 +42,9 @@ public final class YagamiInputMethodService extends InputMethodService {
     private static final int SPECIAL_BACKGROUND = Color.rgb(174, 180, 189);
     private static final int PRESSED_BACKGROUND = Color.rgb(205, 208, 213);
     private static final int ACCENT = Color.rgb(49, 92, 74);
+    private static final int PAGE_LETTERS = 0;
+    private static final int PAGE_NUMBERS = 1;
+    private static final int PAGE_SYMBOLS = 2;
     private static final long DELETE_REPEAT_INTERVAL_MS = 55;
 
     private final Handler deleteHandler = new Handler(Looper.getMainLooper());
@@ -49,12 +52,14 @@ public final class YagamiInputMethodService extends InputMethodService {
     private final Runnable repeatedBackspace = this::repeatBackspace;
     private NativeBridge nativeBridge;
     private LinearLayout candidates;
+    private LinearLayout keyRows;
     private TextView modeKey;
     private TextView shiftKey;
     private final List<TextView> letterKeys = new ArrayList<>();
     private boolean chinese = true;
     private boolean deletingRepeatedly;
     private boolean shifted;
+    private int keyboardPage = PAGE_LETTERS;
 
     @Override
     public void onCreate() {
@@ -74,8 +79,6 @@ public final class YagamiInputMethodService extends InputMethodService {
         keyboard.setOrientation(LinearLayout.VERTICAL);
         keyboard.setPadding(dp(3), 0, dp(3), dp(5));
         keyboard.setBackgroundColor(BACKGROUND);
-        letterKeys.clear();
-
         HorizontalScrollView scroller = new HorizontalScrollView(this);
         scroller.setHorizontalScrollBarEnabled(false);
         scroller.setBackgroundColor(Color.rgb(247, 248, 249));
@@ -87,10 +90,11 @@ public final class YagamiInputMethodService extends InputMethodService {
         keyboard.addView(scroller, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(58)));
 
-        addLetterRow(keyboard, "qwertyuiop", 0);
-        addLetterRow(keyboard, "asdfghjkl", dp(17));
-        addThirdRow(keyboard);
-        addBottomRow(keyboard);
+        keyRows = new LinearLayout(this);
+        keyRows.setOrientation(LinearLayout.VERTICAL);
+        keyboard.addView(keyRows, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        showLetterLayout();
         updateCandidates();
         return keyboard;
     }
@@ -99,6 +103,7 @@ public final class YagamiInputMethodService extends InputMethodService {
     public void onStartInputView(EditorInfo info, boolean restarting) {
         super.onStartInputView(info, restarting);
         clearComposition();
+        showLetterLayout();
     }
 
     @Override
@@ -131,6 +136,86 @@ public final class YagamiInputMethodService extends InputMethodService {
         keyboard.addView(row, rowParams());
     }
 
+    private void showLetterLayout() {
+        if (keyRows == null) {
+            return;
+        }
+        setShifted(false);
+        keyboardPage = PAGE_LETTERS;
+        keyRows.removeAllViews();
+        letterKeys.clear();
+        addLetterRow(keyRows, "qwertyuiop", 0);
+        addLetterRow(keyRows, "asdfghjkl", dp(17));
+        addThirdRow(keyRows);
+        addLetterBottomRow(keyRows);
+    }
+
+    private void showNumberLayout() {
+        if (hasComposition()) {
+            commitCandidate(0);
+        }
+        keyboardPage = PAGE_NUMBERS;
+        showSymbolRows(
+                new String[]{"1", "2", "3", "4", "5", "6", "7", "8", "9", "0"},
+                new String[]{"-", "/", ":", ";", "(", ")", "$", "&", "@", "\""},
+                "#+=");
+    }
+
+    private void showSymbolLayout() {
+        keyboardPage = PAGE_SYMBOLS;
+        showSymbolRows(
+                new String[]{"[", "]", "{", "}", "#", "%", "^", "*", "+", "="},
+                new String[]{"_", "\\", "|", "~", "<", ">", "€", "£", "¥", "•"},
+                "123");
+    }
+
+    private void showSymbolRows(String[] firstRow, String[] secondRow, String pageLabel) {
+        if (keyRows == null) {
+            return;
+        }
+        setShifted(false);
+        keyRows.removeAllViews();
+        letterKeys.clear();
+        shiftKey = null;
+        addSymbolRow(keyRows, firstRow, 0);
+        addSymbolRow(keyRows, secondRow, dp(10));
+        addSymbolThirdRow(keyRows, pageLabel);
+        addSymbolBottomRow(keyRows);
+    }
+
+    private void addSymbolRow(LinearLayout keyboard, String[] symbols, int sideInset) {
+        LinearLayout row = row();
+        row.setPadding(sideInset, 0, sideInset, 0);
+        for (String symbol : symbols) {
+            TextView key = key(symbol);
+            key.setOnClickListener(view -> punctuation(symbol));
+            row.addView(key, weightedKey());
+        }
+        keyboard.addView(row, rowParams());
+    }
+
+    private void addSymbolThirdRow(LinearLayout keyboard, String pageLabel) {
+        LinearLayout row = row();
+        TextView page = specialKey(pageLabel);
+        page.setOnClickListener(view -> {
+            if (keyboardPage == PAGE_NUMBERS) {
+                showSymbolLayout();
+            } else {
+                showNumberLayout();
+            }
+        });
+        row.addView(page, weightedKey(1.35f));
+
+        for (String symbol : new String[]{".", ",", "?", "!", "'"}) {
+            TextView key = key(symbol);
+            key.setOnClickListener(view -> punctuation(symbol));
+            row.addView(key, weightedKey());
+        }
+
+        row.addView(deleteKey(), weightedKey(1.35f));
+        keyboard.addView(row, rowParams());
+    }
+
     // 触摸监听只接管长按计时，短按与无障碍操作都会回到标准 performClick。
     @SuppressLint("ClickableViewAccessibility")
     private void addThirdRow(LinearLayout keyboard) {
@@ -149,6 +234,12 @@ public final class YagamiInputMethodService extends InputMethodService {
             row.addView(key, weightedKey());
         }
 
+        row.addView(deleteKey(), weightedKey(1.35f));
+        keyboard.addView(row, rowParams());
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private TextView deleteKey() {
         TextView delete = specialKey("⌫");
         delete.setOnClickListener(view -> backspace());
         delete.setOnTouchListener((view, event) -> {
@@ -175,21 +266,24 @@ public final class YagamiInputMethodService extends InputMethodService {
             }
             return true;
         });
-        row.addView(delete, weightedKey(1.35f));
-        keyboard.addView(row, rowParams());
+        return delete;
     }
 
-    private void addBottomRow(LinearLayout keyboard) {
+    private void addLetterBottomRow(LinearLayout keyboard) {
         LinearLayout row = row();
+        TextView numbers = specialKey("123");
+        numbers.setOnClickListener(view -> showNumberLayout());
+        row.addView(numbers, weightedKey(1.15f));
+
         TextView globe = specialKey("◎");
         globe.setContentDescription("切换输入法");
         globe.setOnClickListener(view -> nextInputMethod());
-        row.addView(globe, weightedKey(1.1f));
+        row.addView(globe, weightedKey(0.9f));
 
-        modeKey = specialKey("中");
-        modeKey.setTextColor(ACCENT);
+        modeKey = specialKey(chinese ? "中" : "EN");
+        modeKey.setTextColor(chinese ? ACCENT : Color.DKGRAY);
         modeKey.setOnClickListener(view -> toggleMode());
-        row.addView(modeKey, weightedKey(1.1f));
+        row.addView(modeKey, weightedKey(1f));
 
         TextView comma = specialKey("，");
         comma.setOnClickListener(view -> punctuation(chinese ? "，" : ","));
@@ -197,11 +291,39 @@ public final class YagamiInputMethodService extends InputMethodService {
 
         TextView space = key("空格");
         space.setOnClickListener(view -> space());
-        row.addView(space, weightedKey(4.2f));
+        row.addView(space, weightedKey(3.4f));
 
         TextView period = specialKey("。");
         period.setOnClickListener(view -> punctuation(chinese ? "。" : "."));
         row.addView(period, weightedKey(0.9f));
+
+        TextView enter = key("换行", ACCENT);
+        enter.setTextColor(Color.WHITE);
+        enter.setTextSize(14);
+        enter.setOnClickListener(view -> enter());
+        row.addView(enter, weightedKey(1.5f));
+        keyboard.addView(row, rowParams());
+    }
+
+    private void addSymbolBottomRow(LinearLayout keyboard) {
+        LinearLayout row = row();
+        TextView letters = specialKey("ABC");
+        letters.setOnClickListener(view -> showLetterLayout());
+        row.addView(letters, weightedKey(1.4f));
+
+        TextView globe = specialKey("◎");
+        globe.setContentDescription("切换输入法");
+        globe.setOnClickListener(view -> nextInputMethod());
+        row.addView(globe, weightedKey(1f));
+
+        modeKey = specialKey(chinese ? "中" : "EN");
+        modeKey.setTextColor(chinese ? ACCENT : Color.DKGRAY);
+        modeKey.setOnClickListener(view -> toggleMode());
+        row.addView(modeKey, weightedKey(1.1f));
+
+        TextView space = key("空格");
+        space.setOnClickListener(view -> space());
+        row.addView(space, weightedKey(4f));
 
         TextView enter = key("换行", ACCENT);
         enter.setTextColor(Color.WHITE);
