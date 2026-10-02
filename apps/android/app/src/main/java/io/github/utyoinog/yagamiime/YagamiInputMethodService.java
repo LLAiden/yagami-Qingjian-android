@@ -273,12 +273,7 @@ public final class YagamiInputMethodService extends InputMethodService {
         LinearLayout row = row();
         TextView numbers = specialKey("123");
         numbers.setOnClickListener(view -> showNumberLayout());
-        row.addView(numbers, weightedKey(1.15f));
-
-        TextView globe = specialKey("◎");
-        globe.setContentDescription("切换输入法");
-        globe.setOnClickListener(view -> nextInputMethod());
-        row.addView(globe, weightedKey(0.9f));
+        row.addView(numbers, weightedKey(1.1f));
 
         modeKey = specialKey(chinese ? "中" : "EN");
         modeKey.setTextColor(chinese ? ACCENT : Color.DKGRAY);
@@ -287,21 +282,25 @@ public final class YagamiInputMethodService extends InputMethodService {
 
         TextView comma = specialKey("，");
         comma.setOnClickListener(view -> punctuation(chinese ? "，" : ","));
-        row.addView(comma, weightedKey(0.9f));
+        row.addView(comma, weightedKey(0.8f));
 
         TextView space = key("空格");
         space.setOnClickListener(view -> space());
-        row.addView(space, weightedKey(3.4f));
+        space.setOnLongClickListener(view -> {
+            nextInputMethod();
+            return true;
+        });
+        row.addView(space, weightedKey(4.4f));
 
         TextView period = specialKey("。");
         period.setOnClickListener(view -> punctuation(chinese ? "。" : "."));
-        row.addView(period, weightedKey(0.9f));
+        row.addView(period, weightedKey(0.8f));
 
         TextView enter = key("换行", ACCENT);
         enter.setTextColor(Color.WHITE);
         enter.setTextSize(14);
         enter.setOnClickListener(view -> enter());
-        row.addView(enter, weightedKey(1.5f));
+        row.addView(enter, weightedKey(2.1f));
         keyboard.addView(row, rowParams());
     }
 
@@ -309,27 +308,26 @@ public final class YagamiInputMethodService extends InputMethodService {
         LinearLayout row = row();
         TextView letters = specialKey("ABC");
         letters.setOnClickListener(view -> showLetterLayout());
-        row.addView(letters, weightedKey(1.4f));
-
-        TextView globe = specialKey("◎");
-        globe.setContentDescription("切换输入法");
-        globe.setOnClickListener(view -> nextInputMethod());
-        row.addView(globe, weightedKey(1f));
+        row.addView(letters, weightedKey(1.1f));
 
         modeKey = specialKey(chinese ? "中" : "EN");
         modeKey.setTextColor(chinese ? ACCENT : Color.DKGRAY);
         modeKey.setOnClickListener(view -> toggleMode());
-        row.addView(modeKey, weightedKey(1.1f));
+        row.addView(modeKey, weightedKey(1f));
 
         TextView space = key("空格");
         space.setOnClickListener(view -> space());
-        row.addView(space, weightedKey(4f));
+        space.setOnLongClickListener(view -> {
+            nextInputMethod();
+            return true;
+        });
+        row.addView(space, weightedKey(4.8f));
 
         TextView enter = key("换行", ACCENT);
         enter.setTextColor(Color.WHITE);
         enter.setTextSize(14);
         enter.setOnClickListener(view -> enter());
-        row.addView(enter, weightedKey(1.5f));
+        row.addView(enter, weightedKey(2.1f));
         keyboard.addView(row, rowParams());
     }
 
