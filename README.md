@@ -1,6 +1,6 @@
-# Yagami 输入法
+# Yagami_Qingjian 输入法
 
-Yagami 是一个面向 Android 的拼音与语言学习输入法，基于
+Yagami 是一个面向 Android 的拼音与语言学习输入法，基于Qingjian
 [青简](https://github.com/qingjian-team/qingjian) 开源核心开发。本项目是独立维护的非官方衍生版本，
 与 qingjian-team 不存在隶属、授权或官方发布关系。
 
