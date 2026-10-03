@@ -38,7 +38,6 @@ public abstract class KeyboardTestCase extends InstrumentationTestCase {
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         activity = (InputTestActivity) getInstrumentation().startActivitySync(intent);
         showMessage();
-        if (find("全拼") != null) { click("全拼"); }
     }
 
     @Override protected void tearDown() throws Exception {
