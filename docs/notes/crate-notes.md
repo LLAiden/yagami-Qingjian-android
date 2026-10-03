@@ -75,6 +75,10 @@ TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
 
 ## crates/qingjian-learning
 
+- `ChoiceLearner`：Android 使用的有界选词聚合，最多 4096 条；只接受汉字词句与合法输入编码 / 音节，不保留逐键、正文、英文和数字日志。
+  `VecDeque` 控制最近选择淘汰，按输入编码的 `BTreeMap` 缓存频次与逻辑顺序；候选比较不扫描整份个人记录。
+  `choice_priority` 让最近纠正优先，`record_sentence_choice` 记录长整句。已选两次且有音节的词句可通过 `recalled_candidates` 恢复；九键编码与已锁音节必须匹配。
+  整份 JSON 快照最大 2 MB，导入验证后建立索引；增量记录只更新对应索引。关闭 / 私密时 Android 禁用读写，清除后回到基础排序。
 - `FrequencyLearner`：用户选择次数（`user.tsv`）、按输入串记的选择（`user-choices.tsv`，词级排序里同输入串选过的优先）、用户词（`user-words.tsv`，主词库同格式，
   Engine 与主词库一起查）、个人英文词（`user-english.tsv`，回车原样上屏的英文词与选过的英文候选，与随包英文词表一起出候选且在前；
   原样上屏的串要像一个词才学：`MIN_ENGLISH_WORD_LETTERS` = 2 到 `MAX_ENGLISH_WORD_LETTERS` = 15 个字母、切不成完整拼音、
@@ -346,7 +350,12 @@ JNI 拒绝长度超限时给出节流提示，键盘快照在 64 个原始按键
 历史保留时间取 `ClipDescription.getTimestamp()`，无有效时间戳时沿用同内容条目的原时间，读取不会续期。
 私密复制只持久化事件时间戳，服务重建后仍阻止同一次复制入历史；文本与敏感标记从同一个 ClipData 快照读取。
 历史修改前核对 MMKV 快照，避免另一实例清空后旧内存重新写回；过期清理同步落盘。
-Debug 使用 `.preview` 包名与独立名称，测试页仅存在于 Debug 源集中。
+`EncryptedStore` 使用 Android Keystore 非导出 AES-256-GCM，12 字节随机 IV、128 位认证标签；AAD 绑定包名、MMKV 实例和槽位，密文被替换或损坏则停止该实例持久化，不回退明文。
+旧明文历史加密迁移后删除旧槽位并 trim；无可用密钥时删除旧明文。`LearningStore` 专用串行后台线程写入，连续输入暂停整份序列化，最后操作 600ms 后保存变化快照，销毁时刷新。
+仅明确点选候选调用学习提交；空格、自动结束、切换模式与动作键不强化默认答案。会话结束丢弃引擎上下文；密码 / 可见密码 / Web 密码 / IME 私密标记 / 验证码提示均禁止个人排序与学习。
+历史开关与独立清除按钮保留系统当前复制，记录被清除事件时间戳防止再次捕获；验证码 / 敏感标记隐藏可读预览并跳过历史。
+Release 与 Debug 沿用 `.preview` 包名以保留旧 fork 数据；Release 取消调试页与调试能力，通过 v3 轮换证明使用正式证书覆盖此前预览签名。
+Manifest 不申请 Internet，不装配云预测、输入日志、使用统计或追踪器；关闭备份并显式排除全部存储域的云备份 / 设备迁移。
 当前产物含 `arm64-v8a` 与 `x86_64`，构建和安装步骤见 `apps/android/README.md`。
 
 ## assets
