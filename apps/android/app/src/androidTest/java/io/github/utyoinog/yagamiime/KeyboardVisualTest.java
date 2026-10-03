@@ -32,7 +32,7 @@ public final class KeyboardVisualTest extends KeyboardTestCase {
         assertBottomRight();
         click("123"); assertBottomRight();
         click("符号"); assertBottomRight();
-        click("返回数字"); click("拼音"); click("九键"); assertBottomRight();
+        click("返回数字"); click("拼音"); click("EN"); assertBottomRight();
     }
 
     private void assertBottomRight() throws Exception {
@@ -63,7 +63,7 @@ public final class KeyboardVisualTest extends KeyboardTestCase {
     }
 
     public void testFullKeyboardDeleteHasUsableTouchArea() throws Exception {
-        click("九键");
+        click("EN");
         Rect delete = bounds("删除文字"), letter = bounds("m");
         int minimum = Math.round(48 * activity.getResources().getDisplayMetrics().density);
         assertTrue("删除键不能小于 48dp", delete.width() >= minimum && delete.height() >= minimum);
