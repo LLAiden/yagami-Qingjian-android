@@ -2,9 +2,10 @@
 > 基于青简开源核心开发的Android 拼音输入法，支持 Android 8.0+ 与 HarmonyOS Android 兼容环境。
 [原版正式 APK](https://github.com/Utyoin-OG/yagami-Qingjian-android/releases/latest)
 
-本 fork 的 `feat/android-nine-key-ux` 分支提供 **0.2.7 九键预览版**，预览包名称为「Yagami 输入法预览」，
-可与原版并存。已进行 Android 15 模拟器自测，预览包可覆盖安装到小米 Android 16 手机供体验，真实应用兼容矩阵仍待验证；构建与验收步骤见
-[Android 说明](apps/android/README.md)、[布局验收](docs/notes/android-layout-validation.md) 和 [本轮产品需求](docs/plan/android-product-optimization.md)。下面原版正式包的下载与覆盖升级说明不适用于预览包。
+本 fork 的 `feat/android-nine-key-ux` 分支提供 **1.0.0**，保留三种输入模式与固定候选顶栏，增加可关闭的本地选词学习和加密剪贴板。
+个人词句从实际点选逐步建立，不新增预制预测词库；基本输入不依赖学习数据保存成功。
+正式包名称为「Yagami 输入法」，沿用此前 fork 的应用身份，可与原版并存；下面原版下载地址与该 fork 的安装包各自独立。
+构建、验收与隐私说明见 [Android 说明](apps/android/README.md)、[1.0.0 验收](docs/notes/android-1.0.0-validation.md) 和 [用户说明](docs/user/getting-started/android.md)。
 
 Yagami 是一个面向 Android 的拼音与语言学习输入法，基于Qingjian
 [青简](https://github.com/qingjian-team/qingjian) 开源核心开发。
@@ -24,7 +25,8 @@ Yagami 是一个面向 Android 的拼音与语言学习输入法，基于Qingjia
 - 中文 / 英文切换与临时大写，中英文选择会保存
 - 英语空格居中，左侧紧邻 `123`、右侧紧邻 `中文`；Shift 点一次单字母大写、两次锁定大写、再次解除
 - `123` 九宫格数字页与临时英文符号页，各模式统一英文半角标点
-- 剪贴板历史、固定、删除和清空
+- 加密剪贴板历史、固定、删除和清空；可关闭历史，验证码与敏感复制隐藏预览
+- 本地选词学习：明确点选后改善同码词排序，个人词句加密保存，可关闭或清除；密码与私密输入不学习
 - 编辑工具：复制、剪切、粘贴、全选和光标定位
 - 同栏钥匙图标优先打开 Bitwarden 保险库，盾牌时钟图标打开 Google 验证器
 - 三档键盘高度、深浅主题、统一功能图标与更宽的英语全键盘删除键
@@ -35,7 +37,7 @@ Yagami 是一个面向 Android 的拼音与语言学习输入法，基于Qingjia
 - 修复同一输入框重启及按键间隙导致的数字漏输入，减少候选刷新开销；升级保留原设置与剪贴板
 - `arm64-v8a` 与 `x86_64`，Android 8.0 及以上
 
-关于鸿蒙：上游 0.1.5 曾在 HUAWEI Mate 40 Pro、HarmonyOS 4.2.0 的 Android 兼容环境中验证；本 fork 的 0.2.6 预览版尚未完成该设备验证。
+关于鸿蒙：上游 0.1.5 曾在 HUAWEI Mate 40 Pro、HarmonyOS 4.2.0 的 Android 兼容环境中验证；本 fork 的 1.0.0 尚未完成该设备验证。
 
 ## 下载、安装与使用
 
