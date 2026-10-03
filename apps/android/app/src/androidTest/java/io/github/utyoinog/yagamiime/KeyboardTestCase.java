@@ -29,7 +29,7 @@ public abstract class KeyboardTestCase extends InstrumentationTestCase {
         AccessibilityServiceInfo service = getInstrumentation().getUiAutomation().getServiceInfo();
         service.flags |= AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
         getInstrumentation().getUiAutomation().setServiceInfo(service);
-        getInstrumentation().getTargetContext().getSharedPreferences("keyboard", Context.MODE_PRIVATE).edit()
+        LocalStorage.open(getInstrumentation().getTargetContext(), "keyboard").edit()
                 .clear().putBoolean("nine_key", true).putBoolean("chinese", true).commit();
         String component = getInstrumentation().getTargetContext().getPackageName() + "/io.github.utyoinog.yagamiime.YagamiInputMethodService";
         shell("ime enable " + component);
@@ -78,15 +78,23 @@ public abstract class KeyboardTestCase extends InstrumentationTestCase {
     protected void showMessage() throws Exception {
         getInstrumentation().waitForIdleSync();
         if (InputTestActivity.current != null) { activity = InputTestActivity.current; }
-        await(() -> activity.getWindow().getDecorView().hasWindowFocus());
+        await(() -> {
+            if (InputTestActivity.current != null) { activity = InputTestActivity.current; }
+            return activity.getWindow().getDecorView().hasWindowFocus();
+        });
         getInstrumentation().runOnMainSync(() -> {
             activity.message.requestFocus();
             ((InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE)).showSoftInput(activity.message, InputMethodManager.SHOW_IMPLICIT);
         });
         long until = SystemClock.uptimeMillis() + 10000;
         while (find("收起键盘") == null && SystemClock.uptimeMillis() < until) {
-            getInstrumentation().runOnMainSync(() -> ((InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE))
-                    .showSoftInput(activity.message, InputMethodManager.SHOW_IMPLICIT));
+            getInstrumentation().runOnMainSync(() -> {
+                // 导航模式切换可能在窗口等待期间重建 Activity，不能继续请求旧输入框。
+                if (InputTestActivity.current != null) { activity = InputTestActivity.current; }
+                activity.message.requestFocus();
+                ((InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE))
+                        .showSoftInput(activity.message, InputMethodManager.SHOW_IMPLICIT);
+            });
             SystemClock.sleep(100);
         }
         assertNotNull("软键盘未显示", find("收起键盘"));
