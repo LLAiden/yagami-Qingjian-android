@@ -8,23 +8,27 @@ use super::AndroidEngine;
 
 impl AndroidEngine {
     pub(crate) fn candidates(&self) -> Vec<Candidate> {
-        self.engine
-            .query()
-            .map(|query| query.candidates.items)
-            .unwrap_or_default()
+        self.displayed.clone()
     }
 
-    pub(crate) fn snapshot(&self) -> Snapshot {
+    pub(crate) fn snapshot(&mut self) -> Snapshot {
         let Ok(mut query) = self.engine.query() else {
-            return Snapshot::new(self.engine.composition().typed_text(), Vec::new());
+            self.displayed.clear();
+            return Snapshot::new(
+                self.engine.composition().typed_text(),
+                Vec::new(),
+                self.engine.composition().typed_text(),
+                Vec::new(),
+            );
         };
+        query.candidates.items.truncate(60);
         self.engine.annotate(&mut query.candidates);
         let preedit = query.marked_text();
+        self.displayed = query.candidates.items.clone();
         let candidates = query
             .candidates
             .items
             .into_iter()
-            .take(12)
             .map(|candidate| {
                 let gloss = candidate.translation.as_ref().and_then(|translation| {
                     let joined = translation
@@ -38,6 +42,11 @@ impl AndroidEngine {
                 SnapshotCandidate::new(candidate.text, gloss)
             })
             .collect();
-        Snapshot::new(preedit, candidates)
+        Snapshot::new(
+            preedit,
+            candidates,
+            self.engine.composition().typed_text(),
+            self.engine.nine_key_readings(),
+        )
     }
 }
