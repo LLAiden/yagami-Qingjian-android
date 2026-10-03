@@ -10,17 +10,22 @@ public final class KeyboardVisualTest extends KeyboardTestCase {
         android.graphics.Bitmap screenshot = getInstrumentation().getUiAutomation().takeScreenshot();
         assertNotNull(screenshot);
         int foreground = 0;
+        boolean dark = new KeyboardPreferences(activity).dark;
         int inset = Math.round(8 * activity.getResources().getDisplayMetrics().density);
         try {
             for (int y = action.top + inset; y < action.bottom - inset; y++) {
                 for (int x = action.left + inset; x < action.right - inset; x++) {
                     int color = screenshot.getPixel(x, y);
-                    if (android.graphics.Color.red(color) > 220 && android.graphics.Color.green(color) > 220
-                            && android.graphics.Color.blue(color) > 220) { foreground++; }
+                    boolean visible = dark
+                            ? android.graphics.Color.red(color) < 100 && android.graphics.Color.green(color) < 100
+                                    && android.graphics.Color.blue(color) < 100
+                            : android.graphics.Color.red(color) > 220 && android.graphics.Color.green(color) > 220
+                                    && android.graphics.Color.blue(color) > 220;
+                    if (visible) { foreground++; }
                 }
             }
         } finally { screenshot.recycle(); }
-        assertTrue("右下角动作图标与文字必须实际可见，亮色像素=" + foreground, foreground > 150);
+        assertTrue("右下角动作图标与文字必须实际可见，前景像素=" + foreground, foreground > 150);
     }
 
     public void testEditorActionStaysAtBottomRightAcrossLayouts() throws Exception {
