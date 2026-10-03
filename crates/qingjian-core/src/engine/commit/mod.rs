@@ -200,6 +200,10 @@ impl Engine {
                 .request(self.translator.language(), &candidate.text);
         }
         self.composition.drain_prefix(consumed);
+        if self.nine_key.is_some() {
+            let count = candidate.syllables.len().min(self.nine_key_locked.len());
+            self.nine_key_locked.drain(..count);
+        }
         // 上屏即收尾：码段清空、回初始态（数字键与「标点先上屏」都走这里）
         self.aux_code = None;
         let buffer_left = !self.composition.is_empty();
@@ -379,6 +383,9 @@ impl Engine {
     /// 这个候选上屏算接受了哪些音节级敲错：词图里靠敲错变体对上的音节，加上整段纠错落在的那个音节（吃到了编辑处才算）。
     /// 双拼不记（键与全拼对不上）。
     pub(super) fn accepted_typos(&self, candidate: &Candidate) -> Vec<(String, String)> {
+        if self.nine_key.is_some() {
+            return Vec::new();
+        }
         let keys = self.composition.scope();
         if self.decode(keys).is_some() {
             return Vec::new();
@@ -445,6 +452,11 @@ impl Engine {
     /// 纠错生效时按纠正后的拼音算，再按那处编辑换算回原串；双拼按解出的全拼算，再换算回键数。
     pub(super) fn consumed_by(&self, candidate: &Candidate) -> (usize, String) {
         let keys = self.composition.scope();
+        if self.nine_key.is_some() {
+            let code = super::nine_key::encode(&candidate.syllables.join(""));
+            let consumed = code.len().min(keys.len());
+            return (consumed, keys[..consumed].to_owned());
+        }
         if let Some(decoded) = self.decode(keys) {
             let pinyin_len = self.align(decoded.pinyin(), &candidate.syllables).consumed;
             return (
