@@ -46,6 +46,9 @@ YAGAMI_KEY_PASSWORD        签名密钥密码
 0.2.1 增加展开候选、中英文选择记忆、剪贴板去重，以及符号 / 剪贴板返回数字页的状态恢复。
 版本号为 0.2.1 / versionCode 8，可以覆盖升级同签名的 0.2.0 预览包。
 
+0.2.2 完成十轮自查，增加编辑工具、三档高度和深浅主题；修复长按滑出误删、展开候选长按中断、复制时间续期、私密历史重建、输入框动作和重启丢候选。
+版本号为 0.2.2 / versionCode 9，可以覆盖升级同签名的 0.2.1 预览包。
+
 ## 自测
 
 安装已启动的 API 30+ 测试设备；验收会切换测试设备的导航模式和当前输入法。
@@ -62,7 +65,7 @@ adb shell am instrument -w io.github.utyoinog.yagamiime.preview.test/android.tes
 
 交互验收在真实系统 IME 窗口注入触摸事件，覆盖九键候选与消歧、数字布局、全拼/英文、选区与 emoji 删除、长按删除、
 剪贴板去重与删除、密码框、展开候选、中英文记忆、数字页恢复、各面板及系统收起、快速输入、回车动作、导航模式及横屏。测试环境和结果见
-`docs/notes/android-ux-validation.md`；模拟器验证与厂商真机验证分别记录。
+`docs/notes/android-ten-round-audit.md`（0.2.2）与 `docs/notes/android-ux-validation.md`（0.2.1）；模拟器验证与厂商真机验证分别记录。
 
 ## 许可证与来源
 
