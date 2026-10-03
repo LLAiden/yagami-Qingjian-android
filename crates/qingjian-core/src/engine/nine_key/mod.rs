@@ -1,7 +1,9 @@
 //! 九键拼音：数字词索引、音节消歧与有界整句搜索，由 Engine 统一对外提供。
 
+mod hit;
 mod index;
 mod path;
+mod record;
 mod word;
 
 #[cfg(test)]
@@ -43,7 +45,7 @@ impl Engine {
             return;
         }
         self.clear();
-        self.nine_key = enabled.then(|| Index::new(&self.all_dictionaries()));
+        self.nine_key = enabled.then(|| Index::new(&self.all_dictionaries(), self.fuzzy));
     }
 
     /// 可确认的下一个完整音节；已锁定的音节不再显示。
@@ -111,6 +113,7 @@ impl Engine {
         hits.sort_by(|a, b| {
             b.1.cmp(&a.1)
                 .then_with(|| b.2.cmp(&a.2))
+                .then_with(|| a.0.variants.count_ones().cmp(&b.0.variants.count_ones()))
                 .then_with(|| {
                     self.learner
                         .choice_weight(&keys[..b.1], &b.0.text)
@@ -137,7 +140,8 @@ impl Engine {
                     text: path.text.clone(),
                     kind: CandidateKind::Sentence,
                     syllables: path.syllables.clone(),
-                    reading: None,
+                    reading: (path.typed_syllables != path.syllables)
+                        .then(|| path.typed_syllables.join("'")),
                     translation: None,
                     aux_code: None,
                 },
@@ -147,11 +151,15 @@ impl Engine {
         items
             .retain(|candidate| seen.insert((candidate.text.clone(), candidate.syllables.clone())));
         if let Some(first) = items.first() {
-            let code = encode(&first.syllables.join(""));
+            let reading = first
+                .reading
+                .clone()
+                .unwrap_or_else(|| first.syllables.join("'"));
+            let code = encode(&reading);
             let display = if code.len() >= keys.len() {
-                first.syllables.join("'")
+                reading
             } else {
-                format!("{}'{}", first.syllables.join("'"), &keys[code.len()..])
+                format!("{}'{}", reading, &keys[code.len()..])
             };
             query.typed_display = Some(display);
         }
@@ -170,11 +178,13 @@ impl Engine {
                 continue;
             }
             for end in start + 1..=keys.len() {
-                for word in index.exact(&keys[start..end]).iter().take(24) {
+                for word in index.exact(&keys[start..end]).take(24) {
                     for base in &bases {
                         let mut syllables = base.syllables.clone();
                         syllables.extend(word.syllables.iter().cloned());
-                        if !syllables
+                        let mut typed_syllables = base.typed_syllables.clone();
+                        typed_syllables.extend(word.typed_syllables().map(str::to_owned));
+                        if !typed_syllables
                             .iter()
                             .zip(&self.nine_key_locked)
                             .all(|(a, b)| a == b)
@@ -187,6 +197,7 @@ impl Engine {
                             .map(sentence::Context::after)
                             .unwrap_or(self.chain.context());
                         let score = base.score
+                            - f64::from(word.variants.count_ones()) * crate::ranking::FUZZY_PENALTY
                             + sentence::transition_log_prob(
                                 &*self.language_model,
                                 self.personal(),
@@ -197,6 +208,7 @@ impl Engine {
                         best[end].push(Path {
                             text: format!("{}{}", base.text, word.text),
                             syllables,
+                            typed_syllables,
                             score,
                             words: base.words + 1,
                             last: Some(word.text.clone()),
