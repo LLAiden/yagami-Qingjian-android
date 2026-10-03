@@ -29,8 +29,10 @@ final class NativeBridge implements AutoCloseable {
     }
 
     String commit(int index) {
-        return nativeCommit(handle, index);
+        return nativeCommit(handle, index, true);
     }
+
+    String commitFirst() { return nativeCommit(handle, 0, false); }
 
     String takeRaw() {
         return nativeTakeRaw(handle);
@@ -45,6 +47,16 @@ final class NativeBridge implements AutoCloseable {
     }
 
     void setFuzzy(int mask) { nativeSetFuzzy(handle, mask); }
+
+    void privacy(boolean privateEditor, boolean learning) { nativePrivacy(handle, privateEditor, learning); }
+
+    void startSession(boolean privateEditor, boolean learning) { nativeStartSession(handle, privateEditor, learning); }
+
+    boolean restoreLearning(String snapshot) { return nativeRestoreLearning(handle, snapshot); }
+
+    String learningSnapshot() { return nativeLearningSnapshot(handle); }
+
+    void clearLearning() { nativeClearLearning(handle); }
 
     void lockReading(String reading) {
         nativeLockReading(handle, reading);
@@ -63,10 +75,15 @@ final class NativeBridge implements AutoCloseable {
     private static native boolean nativePush(long handle, int codePoint);
     private static native boolean nativeBackspace(long handle);
     private static native void nativeClear(long handle);
-    private static native String nativeCommit(long handle, int index);
+    private static native String nativeCommit(long handle, int index, boolean explicit);
     private static native String nativeTakeRaw(long handle);
     private static native String nativeSnapshot(long handle);
     private static native void nativeSetNineKey(long handle, boolean enabled);
     private static native void nativeSetFuzzy(long handle, int mask);
     private static native void nativeLockReading(long handle, String reading);
+    private static native void nativePrivacy(long handle, boolean privateEditor, boolean learning);
+    private static native void nativeStartSession(long handle, boolean privateEditor, boolean learning);
+    private static native boolean nativeRestoreLearning(long handle, String snapshot);
+    private static native String nativeLearningSnapshot(long handle);
+    private static native void nativeClearLearning(long handle);
 }
