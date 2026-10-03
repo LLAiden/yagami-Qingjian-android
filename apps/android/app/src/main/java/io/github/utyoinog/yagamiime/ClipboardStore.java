@@ -29,19 +29,25 @@ final class ClipboardStore {
     private static final int LIMIT = 30;
     private static final long EXPIRY = 24 * 60 * 60 * 1000L;
     private final SharedPreferences preferences;
+    private final SharedPreferences settings;
+    private final EncryptedStore encrypted;
     private final ClipboardManager clipboard;
     private final List<Entry> entries = new ArrayList<>();
     private String savedHistory;
 
     ClipboardStore(Context context) {
         preferences = LocalStorage.open(context, "clipboard");
+        settings = LocalStorage.open(context, "keyboard");
+        encrypted = new EncryptedStore(context, "clipboard");
+        encrypted.migrate("history");
         clipboard = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
         reload();
         prune();
     }
 
     private void reload() {
-        String saved = preferences.getString("history", "[]");
+        if (savedHistory != null && !encrypted.available()) { return; }
+        String saved = encrypted.get("history", "[]");
         if (saved.equals(savedHistory)) { return; }
         savedHistory = saved;
         entries.clear();
@@ -55,6 +61,15 @@ final class ClipboardStore {
     }
 
     ClipboardManager manager() { return clipboard; }
+
+    boolean persistent() { return encrypted.available(); }
+
+    boolean historyEnabled() { return settings.getInt("clipboard_history", 1) == 1; }
+
+    boolean currentSensitive() {
+        ClipData data = currentClip();
+        return data != null && ClipboardPrivacy.sensitive(data.getDescription(), plainText(data));
+    }
 
     String current() {
         return plainText(currentClip());
@@ -84,9 +99,9 @@ final class ClipboardStore {
             return;
         }
         if (copiedAt > 0 && copiedAt == preferences.getLong("private_copy_time", -1)) { return; }
+        if (copiedAt > 0 && copiedAt == preferences.getLong("suppressed_copy_time", -1)) { return; }
         if (copiedAt > 0) { preferences.edit().remove("private_copy_time").apply(); }
-        if (description != null && description.getExtras() != null
-                && description.getExtras().getBoolean("android.content.extra.IS_SENSITIVE", false)) { return; }
+        if (!historyEnabled() || ClipboardPrivacy.sensitive(description, text)) { return; }
         if (TextUtils.isEmpty(text) || text.length() > 10000) { return; }
         Entry existing = null;
         for (Entry entry : entries) { if (entry.text.equals(text)) { existing = entry; break; } }
@@ -124,6 +139,15 @@ final class ClipboardStore {
         save();
     }
 
+    void clearHistory() {
+        entries.clear(); savedHistory = "[]";
+        ClipData current = currentClip();
+        if (current != null && current.getDescription().getTimestamp() > 0) {
+            preferences.edit().putLong("suppressed_copy_time", current.getDescription().getTimestamp()).apply();
+        }
+        encrypted.remove("history");
+    }
+
     private void clearCurrent() {
         if (Build.VERSION.SDK_INT >= 28) { clipboard.clearPrimaryClip(); }
         else { clipboard.setPrimaryClip(ClipData.newPlainText("", "")); }
@@ -132,7 +156,7 @@ final class ClipboardStore {
     private void prune() {
         int previousSize = entries.size();
         long oldest = System.currentTimeMillis() - EXPIRY;
-        entries.removeIf(entry -> !entry.pinned && entry.time < oldest);
+        entries.removeIf(entry -> !entry.pinned && entry.time < oldest || ClipboardPrivacy.sensitive(null, entry.text));
         entries.sort((a, b) -> a.pinned == b.pinned ? Long.compare(b.time, a.time) : (a.pinned ? -1 : 1));
         while (entries.size() > LIMIT) { entries.remove(entries.size() - 1); }
         if (entries.size() != previousSize) { save(); }
@@ -148,6 +172,6 @@ final class ClipboardStore {
             } catch (Exception ignored) { /* 仅保存可序列化的文本条目。 */ }
         }
         savedHistory = saved.toString();
-        preferences.edit().putString("history", savedHistory).apply();
+        encrypted.put("history", savedHistory);
     }
 }
