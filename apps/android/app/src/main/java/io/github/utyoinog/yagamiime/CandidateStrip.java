@@ -29,6 +29,8 @@ final class CandidateStrip extends LinearLayout {
         super(context);
         this.actions = actions; style = new KeyboardStyle(context);
         setOrientation(VERTICAL);
+        setContentDescription("候选区域");
+        setVisibility(GONE);
         LinearLayout bar = new LinearLayout(context);
         bar.setGravity(Gravity.CENTER_VERTICAL);
         candidateScroll = new HorizontalScrollView(context);
@@ -63,18 +65,28 @@ final class CandidateStrip extends LinearLayout {
         expand.setContentDescription(expanded ? "收回候选" : "展开候选");
     }
 
-    void update(JSONObject snapshot, boolean chinese, boolean nineKey) {
+    void update(JSONObject snapshot, boolean active) {
+        String raw = snapshot.optString("raw");
+        if (!active || raw.isEmpty()) {
+            setVisibility(GONE);
+            if (!candidateContents.isEmpty() || !readingContents.isEmpty()) {
+                candidateContents = ""; readingContents = "";
+                candidateItems = new JSONArray(); shown = 0;
+                candidates.removeAllViews(); readings.removeAllViews();
+            }
+            return;
+        }
+        setVisibility(VISIBLE);
         JSONArray items = snapshot.optJSONArray("candidates");
         boolean hasCandidates = items != null && items.length() > 0;
-        String raw = snapshot.optString("raw");
-        String contents = hasCandidates ? items.toString() : raw + ":" + chinese;
+        String contents = hasCandidates ? items.toString() : raw;
         if (!contents.equals(candidateContents)) {
             candidateContents = contents;
             candidates.removeAllViews();
             candidateItems = items == null ? new JSONArray() : items;
             shown = 0;
             if (!hasCandidates) {
-                candidates.addView(hint(raw.isEmpty() ? (chinese ? "开始输入 · 英译随候选显示" : "English") : raw, 14),
+                candidates.addView(hint(raw, 14),
                         new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, style.dp(style.candidateHeight())));
             } else { appendCandidates(); }
             candidateScroll.post(() -> candidateScroll.scrollTo(0, 0));
@@ -82,7 +94,8 @@ final class CandidateStrip extends LinearLayout {
         expand.setVisibility(hasCandidates ? VISIBLE : INVISIBLE);
         JSONArray options = snapshot.optJSONArray("readings");
         boolean limitReached = raw.length() >= NativeBridge.MAX_INPUT_LENGTH;
-        String optionContents = limitReached ? "limit" : chinese + ":" + nineKey + ":" + (options == null ? "" : options.toString());
+        readingScroll.setVisibility(limitReached || options != null && options.length() > 0 ? VISIBLE : GONE);
+        String optionContents = limitReached ? "limit" : options == null ? "" : options.toString();
         if (optionContents.equals(readingContents)) { return; }
         readingContents = optionContents;
         readings.removeAllViews();
@@ -91,7 +104,7 @@ final class CandidateStrip extends LinearLayout {
             TextView limit = hint("输入已满 · 请先选词或删除", 13);
             limit.setTextColor(style.accent); limit.setContentDescription("输入长度提示");
             readings.addView(limit);
-        } else if (chinese && nineKey && options != null && options.length() > 0) {
+        } else if (options != null && options.length() > 0) {
             readings.addView(hint("拼音", 12));
             for (int i = 0; i < options.length(); i++) {
                 String reading = options.optString(i);
@@ -103,8 +116,6 @@ final class CandidateStrip extends LinearLayout {
                 cell.setMargins(style.dp(3), 0, style.dp(3), 0);
                 readings.addView(option, cell);
             }
-        } else {
-            readings.addView(hint(chinese ? "左右滑动查看更多候选" : "长按空格切换输入法", 12));
         }
     }
 
