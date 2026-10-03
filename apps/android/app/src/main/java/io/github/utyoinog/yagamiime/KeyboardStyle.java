@@ -9,15 +9,25 @@ import android.view.Gravity;
 import android.widget.TextView;
 
 final class KeyboardStyle {
-    static final int BACKGROUND = Color.rgb(226, 231, 229);
-    static final int KEY = Color.rgb(255, 255, 255);
-    static final int SPECIAL = Color.rgb(202, 214, 208);
-    static final int ACCENT = Color.rgb(49, 92, 74);
-    static final int TEXT = Color.rgb(26, 41, 34);
-
+    final int background;
+    final int key;
+    final int special;
+    final int accent;
+    final int text;
+    final int pressed;
+    final boolean dark;
     private final Context context;
 
-    KeyboardStyle(Context context) { this.context = context; }
+    KeyboardStyle(Context context) {
+        this.context = context;
+        dark = new KeyboardPreferences(context).dark;
+        background = dark ? Color.rgb(29, 36, 33) : Color.rgb(226, 231, 229);
+        key = dark ? Color.rgb(43, 52, 47) : Color.WHITE;
+        special = dark ? Color.rgb(61, 75, 68) : Color.rgb(202, 214, 208);
+        accent = dark ? Color.rgb(169, 213, 184) : Color.rgb(49, 92, 74);
+        text = dark ? Color.rgb(237, 245, 239) : Color.rgb(26, 41, 34);
+        pressed = dark ? Color.rgb(82, 105, 91) : Color.rgb(169, 192, 181);
+    }
 
     int dp(int value) { return Math.round(value * context.getResources().getDisplayMetrics().density); }
 
@@ -25,14 +35,14 @@ final class KeyboardStyle {
         TextView view = new TextView(context);
         view.setText(label);
         view.setTextSize(19);
-        view.setTextColor(TEXT);
+        view.setTextColor(text);
         view.setGravity(Gravity.CENTER);
         view.setContentDescription(label);
         view.setClickable(true);
         view.setFocusable(false);
         StateListDrawable background = new StateListDrawable();
-        background.addState(new int[]{android.R.attr.state_pressed}, rounded(Color.rgb(169, 192, 181)));
-        background.addState(new int[]{}, rounded(special ? SPECIAL : KEY));
+        background.addState(new int[]{android.R.attr.state_pressed}, rounded(pressed));
+        background.addState(new int[]{}, rounded(special ? this.special : key));
         view.setBackground(background);
         view.setOnClickListener(ignored -> action.run());
         return view;
