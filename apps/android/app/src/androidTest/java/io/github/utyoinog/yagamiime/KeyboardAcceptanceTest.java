@@ -29,7 +29,8 @@ public final class KeyboardAcceptanceTest extends InstrumentationTestCase {
         AccessibilityServiceInfo service = getInstrumentation().getUiAutomation().getServiceInfo();
         service.flags |= AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
         getInstrumentation().getUiAutomation().setServiceInfo(service);
-        getInstrumentation().getTargetContext().getSharedPreferences("keyboard", Context.MODE_PRIVATE).edit().putBoolean("nine_key", true).commit();
+        getInstrumentation().getTargetContext().getSharedPreferences("keyboard", Context.MODE_PRIVATE).edit()
+                .putBoolean("nine_key", true).putBoolean("chinese", true).commit();
         String component = getInstrumentation().getTargetContext().getPackageName() + "/io.github.utyoinog.yagamiime.YagamiInputMethodService";
         shell("ime enable " + component);
         shell("ime set " + component);
@@ -83,6 +84,166 @@ public final class KeyboardAcceptanceTest extends InstrumentationTestCase {
         assertTrue(one.centerX() < two.centerX() && two.centerX() < three.centerX());
         assertEquals(one.centerX(), four.centerX());
         assertTrue(four.centerY() > one.centerY());
+    }
+
+    public void testNumericClipboardReturnsToDecimalKeypad() throws Exception {
+        getInstrumentation().runOnMainSync(() -> {
+            activity.number.requestFocus();
+            ((InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE)).showSoftInput(activity.number, InputMethodManager.SHOW_IMPLICIT);
+        });
+        click("1");
+        click("剪贴板");
+        click("返回键盘");
+        assertNotNull("数字框返回后应保留数字键", find("1"));
+        assertNotNull("数字框返回后应保留小数点", find("."));
+        click("."); click("2");
+        await(() -> activity.number.getText().toString().equals("1.2"));
+        click("符号");
+        click("返回数字");
+        click("3");
+        await(() -> activity.number.getText().toString().equals("1.23"));
+    }
+
+    public void testEnglishChoiceSurvivesEditorSwitch() throws Exception {
+        click("EN");
+        click("h");
+        getInstrumentation().runOnMainSync(() -> activity.number.requestFocus());
+        await(() -> find("1") != null);
+        showMessage();
+        assertNotNull("返回普通输入框应保留英文模式", find("中文"));
+        click("i");
+        await(() -> activity.message.getText().toString().equals("hi"));
+    }
+
+    public void testClipboardCurrentAppearsOnce() throws Exception {
+        Context context = getInstrumentation().getTargetContext();
+        getInstrumentation().runOnMainSync(() -> {
+            new ClipboardStore(context).clear();
+            ((ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE))
+                    .setPrimaryClip(ClipData.newPlainText("test", "去重验收"));
+        });
+        SystemClock.sleep(200);
+        click("剪贴板");
+        int copies = 0;
+        for (AccessibilityWindowInfo window : getInstrumentation().getUiAutomation().getWindows()) {
+            copies += countClipboardText(window.getRoot(), "去重验收");
+        }
+        assertEquals("当前复制与历史不能显示为两份", 1, copies);
+        click("固定");
+        assertNotNull(find("取消固定"));
+        click("粘贴 当前复制 去重验收");
+        await(() -> activity.message.getText().toString().equals("去重验收"));
+    }
+
+    public void testDeletingCurrentClipboardDoesNotReturn() throws Exception {
+        Context context = getInstrumentation().getTargetContext();
+        getInstrumentation().runOnMainSync(() -> {
+            new ClipboardStore(context).clear();
+            ((ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE))
+                    .setPrimaryClip(ClipData.newPlainText("test", "删除剪贴板验收"));
+        });
+        SystemClock.sleep(200);
+        click("剪贴板"); click("删除");
+        await(() -> find("粘贴 当前复制 删除剪贴板验收") == null);
+        click("返回键盘"); click("剪贴板");
+        assertNull(find("粘贴 当前复制 删除剪贴板验收"));
+        assertTrue(new ClipboardStore(context).entries().isEmpty());
+    }
+
+    public void testTemporaryEnglishEditorDoesNotChangePreference() throws Exception {
+        getInstrumentation().runOnMainSync(() -> {
+            activity.password.requestFocus();
+            ((InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE)).showSoftInput(activity.password, InputMethodManager.SHOW_IMPLICIT);
+        });
+        await(() -> find("中文") != null);
+        click("h");
+        showMessage();
+        await(() -> find("拼音键 2 ABC") != null);
+        typeDigits("64426"); click("候选 你好");
+        await(() -> activity.message.getText().toString().equals("你好"));
+        assertEquals("h", activity.password.getText().toString());
+    }
+
+    public void testExpandedCandidatesChooseAndReturn() throws Exception {
+        typeDigits("64"); click("展开候选");
+        Rect ni = bounds("展开候选 你"), mi = bounds("展开候选 米");
+        assertEquals(ni.centerY(), mi.centerY());
+        assertTrue(ni.centerX() < mi.centerX());
+        click("展开候选 米");
+        await(() -> activity.message.getText().toString().equals("米"));
+        await(() -> find("拼音键 2 ABC") != null);
+        typeDigits("64426"); click("展开候选"); click("返回键盘");
+        click("候选 你好");
+        await(() -> activity.message.getText().toString().equals("米你好"));
+    }
+
+    public void testExpandedCandidatesHidePreservesComposition() throws Exception {
+        typeDigits("64426"); click("展开候选"); click("收起键盘");
+        await(() -> find("收起键盘") == null);
+        await(() -> activity.message.getText().toString().equals("你好"));
+        showMessage();
+        assertNotNull(find("拼音键 2 ABC"));
+        assertEquals("你好", activity.message.getText().toString());
+    }
+
+    public void testSystemHidePreservesComposition() throws Exception {
+        typeDigits("64426");
+        getInstrumentation().runOnMainSync(() -> ((InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE))
+                .hideSoftInputFromWindow(activity.message.getWindowToken(), 0));
+        await(() -> find("收起键盘") == null);
+        await(() -> activity.message.getText().toString().equals("你好"));
+        showMessage();
+        typeDigits("64426"); click("候选 你好");
+        await(() -> activity.message.getText().toString().equals("你好你好"));
+    }
+
+    public void testPhoneClipboardPasteKeepsPhoneKeys() throws Exception {
+        Context context = getInstrumentation().getTargetContext();
+        getInstrumentation().runOnMainSync(() -> {
+            activity.number.setInputType(android.text.InputType.TYPE_CLASS_PHONE);
+            activity.number.requestFocus();
+            ((InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE)).showSoftInput(activity.number, InputMethodManager.SHOW_IMPLICIT);
+            new ClipboardStore(context).clear();
+            ((ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE))
+                    .setPrimaryClip(ClipData.newPlainText("test", "123"));
+        });
+        click("剪贴板"); click("粘贴 当前复制 123");
+        await(() -> activity.number.getText().toString().equals("123"));
+        assertNotNull(find("*")); assertNotNull(find("#"));
+        click("#");
+        await(() -> activity.number.getText().toString().equals("123#"));
+    }
+
+    public void testCandidateStripReturnsToStartOnNewInput() throws Exception {
+        typeDigits("64");
+        Rect strip = bounds("候选列表");
+        swipe(strip.right - 30, strip.centerY(), strip.left + 30, strip.centerY());
+        typeDigits("426");
+        Rect first = bounds("候选 你好");
+        assertTrue("新候选应从首项开始显示", first.left >= strip.left && first.right <= strip.right);
+    }
+
+    private void swipe(int x1, int y1, int x2, int y2) {
+        long time = SystemClock.uptimeMillis();
+        for (int step = 0; step <= 12; step++) {
+            int action = step == 0 ? MotionEvent.ACTION_DOWN : step == 12 ? MotionEvent.ACTION_UP : MotionEvent.ACTION_MOVE;
+            MotionEvent event = MotionEvent.obtain(time, time + step * 25L, action,
+                    x1 + (x2 - x1) * step / 12f, y1 + (y2 - y1) * step / 12f, 0);
+            event.setSource(InputDevice.SOURCE_TOUCHSCREEN);
+            getInstrumentation().getUiAutomation().injectInputEvent(event, true);
+            event.recycle();
+            SystemClock.sleep(25);
+        }
+        SystemClock.sleep(150);
+    }
+
+    private int countClipboardText(AccessibilityNodeInfo node, String text) {
+        if (node == null) { return 0; }
+        CharSequence description = node.getContentDescription();
+        int count = node.isVisibleToUser() && description != null && description.toString().startsWith("粘贴 ")
+                && description.toString().endsWith(" " + text) ? 1 : 0;
+        for (int i = 0; i < node.getChildCount(); i++) { count += countClipboardText(node.getChild(i), text); }
+        return count;
     }
 
     public void testClipboardHistoryAndPastePreservesComposition() throws Exception {
