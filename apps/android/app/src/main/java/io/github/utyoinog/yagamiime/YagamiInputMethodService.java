@@ -31,6 +31,7 @@ public final class YagamiInputMethodService extends InputMethodService implement
     private final ExecutorService engineQueue = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
     private NativeBridge bridge;
+    private LearningStore learning;
     private KeyboardView keyboard;
     private ClipboardStore clipboard;
     private final ClipboardManager.OnPrimaryClipChangedListener clipListener = this::captureClipboard;
@@ -47,6 +48,7 @@ public final class YagamiInputMethodService extends InputMethodService implement
     private long lastLimitNotice;
     private int editorInputType;
     private Runnable pendingCompositionEnd;
+    private Runnable pendingLearningSave;
     private JSONObject snapshot = new JSONObject();
 
     @Override public void onCreate() {
@@ -56,6 +58,8 @@ public final class YagamiInputMethodService extends InputMethodService implement
         engineQueue.execute(() -> {
             try {
                 bridge = new NativeBridge(copyAsset("dict.tsv").getAbsolutePath(), copyAsset("glossary-en.tsv").getAbsolutePath());
+                learning = new LearningStore(this);
+                bridge.restoreLearning(learning.load());
             } catch (Exception | LinkageError error) {
                 main.post(() -> Toast.makeText(this, "词库加载失败，请重新打开输入法", Toast.LENGTH_LONG).show());
             }
@@ -87,7 +91,7 @@ public final class YagamiInputMethodService extends InputMethodService implement
     @Override public void onStartInput(EditorInfo info, boolean restarting) {
         super.onStartInput(info, restarting);
         cancelPendingCompositionEnd();
-        boolean nextPrivate = isPrivate(info);
+        boolean nextPrivate = EditorPrivacy.privateInput(info);
         if (restarting && !composing && editorInputType == info.inputType && privateEditor == nextPrivate) {
             // 同一输入框重启不能取消已接收的直输按键或正在按下的视图。
             selected = info.initialSelStart != info.initialSelEnd;
@@ -120,7 +124,11 @@ public final class YagamiInputMethodService extends InputMethodService implement
                 && variation != InputType.TYPE_TEXT_VARIATION_URI;
         final boolean target = chinese;
         final int fuzzy = new KeyboardPreferences(this).nasal;
-        enqueue(engine -> { engine.clear(); engine.setNineKey(target); engine.setFuzzy(fuzzy); return null; });
+        final boolean personalized = new KeyboardPreferences(this).learning && EditorPrivacy.personalized(info);
+        enqueue(engine -> {
+            engine.startSession(nextPrivate, personalized); engine.setNineKey(target); engine.setFuzzy(fuzzy);
+            return null;
+        });
     }
 
     @Override public void onStartInputView(EditorInfo info, boolean restarting) {
@@ -147,7 +155,7 @@ public final class YagamiInputMethodService extends InputMethodService implement
         composing = false;
         selected = false;
         snapshot = new JSONObject();
-        enqueue(engine -> { engine.clear(); return null; });
+        enqueue(engine -> { engine.startSession(true, false); return null; });
         super.onFinishInput();
     }
 
@@ -185,7 +193,13 @@ public final class YagamiInputMethodService extends InputMethodService implement
         clipboard.manager().removePrimaryClipChangedListener(clipListener);
         if (keyboard != null) { keyboard.cancelRepeat(); }
         main.removeCallbacksAndMessages(null);
-        engineQueue.execute(() -> { if (bridge != null) { bridge.close(); bridge = null; } });
+        engineQueue.execute(() -> {
+            if (bridge != null) {
+                if (learning != null) { learning.save(bridge.learningSnapshot()); }
+                bridge.close(); bridge = null;
+            }
+            if (learning != null) { learning.close(); }
+        });
         engineQueue.shutdown();
         super.onDestroy();
     }
@@ -243,7 +257,7 @@ public final class YagamiInputMethodService extends InputMethodService implement
             try {
                 if (new JSONObject(state).optString("raw").isEmpty()) { return " "; }
             } catch (Exception ignored) { return " "; }
-            String text = engine.commit(0);
+            String text = engine.commitFirst();
             return text.isEmpty() ? engine.takeRaw() : text;
         });
     }
@@ -384,18 +398,38 @@ public final class YagamiInputMethodService extends InputMethodService implement
     }
 
     @Override public void setting(String name, int value) {
+        final boolean settingPrivate = privateEditor;
+        final boolean settingPersonalized = EditorPrivacy.personalized(getCurrentInputEditorInfo());
+        if (name.equals("clear_learning")) {
+            enqueue(engine -> {
+                String text = finish(engine); engine.clearLearning();
+                if (learning != null) { learning.clear(); }
+                return text;
+            }, connection -> Toast.makeText(this, "本地学习数据已清除", Toast.LENGTH_SHORT).show());
+            return;
+        }
+        if (name.equals("clear_history")) {
+            clipboard.clearHistory();
+            Toast.makeText(this, "剪贴板历史已清除", Toast.LENGTH_SHORT).show();
+            return;
+        }
         final int bit = KeyboardPreferences.nasalBit(name);
         if (name.equals("height")) { if (value < -1 || value > 1) { return; } }
         else if (name.equals("theme")) { if (value < 0 || value > 2) { return; } }
         else if (bit != 0) { if (value < 0 || value > 1) { return; } }
+        else if (name.equals("learning") || name.equals("clipboard_history")) { if (value < 0 || value > 1) { return; } }
         else { return; }
         final int fuzzy = (new KeyboardPreferences(this).nasal & ~bit) | (value == 1 ? bit : 0);
         enqueue(engine -> {
             String text = finish(engine);
             if (bit != 0) { engine.setFuzzy(fuzzy); }
+            if (name.equals("learning")) {
+                engine.privacy(settingPrivate, value == 1 && settingPersonalized);
+            }
             return text;
         }, connection -> {
             LocalStorage.open(this, "keyboard").edit().putInt(name, value).apply();
+            if (name.equals("clipboard_history") && value == 0) { clipboard.clearHistory(); }
             replaceKeyboard(true);
         });
     }
@@ -422,7 +456,23 @@ public final class YagamiInputMethodService extends InputMethodService implement
                     if (after != null) { after.accept(connection); }
                 }
             });
+            main.post(this::scheduleLearningSave);
         });
+    }
+
+    private void scheduleLearningSave() {
+        if (destroyed) { return; }
+        if (pendingLearningSave != null) { main.removeCallbacks(pendingLearningSave); }
+        pendingLearningSave = () -> {
+            pendingLearningSave = null;
+            if (!destroyed) {
+                engineQueue.execute(() -> {
+                    if (bridge != null && learning != null) { learning.save(bridge.learningSnapshot()); }
+                });
+            }
+        };
+        // 连续输入期间不序列化整份学习快照；停顿后由后台队列保存。
+        main.postDelayed(pendingLearningSave, 600);
     }
 
     private JSONObject state() {
@@ -462,7 +512,7 @@ public final class YagamiInputMethodService extends InputMethodService implement
         for (int attempt = 0; attempt < 64; attempt++) {
             try { if (new JSONObject(engine.snapshot()).optString("raw").isEmpty()) { break; } }
             catch (Exception ignored) { break; }
-            String part = engine.commit(0);
+            String part = engine.commitFirst();
             if (part.isEmpty()) { part = engine.takeRaw(); }
             text.append(part);
         }
@@ -530,15 +580,6 @@ public final class YagamiInputMethodService extends InputMethodService implement
         if (!temp.renameTo(file)) { throw new IllegalStateException("无法安装词库"); }
         LocalStorage.open(this, "assets").edit().putString(key, version).apply();
         return file;
-    }
-
-    private static boolean isPrivate(EditorInfo info) {
-        int type = info.inputType & InputType.TYPE_MASK_CLASS;
-        int variation = info.inputType & InputType.TYPE_MASK_VARIATION;
-        return (info.imeOptions & EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING) != 0
-                || type == InputType.TYPE_CLASS_NUMBER && variation == InputType.TYPE_NUMBER_VARIATION_PASSWORD
-                || type == InputType.TYPE_CLASS_TEXT && (variation == InputType.TYPE_TEXT_VARIATION_PASSWORD
-                    || variation == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD || variation == InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD);
     }
 
     private static boolean multiline(EditorInfo info) {
