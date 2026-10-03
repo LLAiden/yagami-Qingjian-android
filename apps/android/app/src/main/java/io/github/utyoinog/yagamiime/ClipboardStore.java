@@ -31,39 +31,60 @@ final class ClipboardStore {
     private final SharedPreferences preferences;
     private final ClipboardManager clipboard;
     private final List<Entry> entries = new ArrayList<>();
-    private String privateCopy = "";
+    private String savedHistory;
 
     ClipboardStore(Context context) {
         preferences = context.getSharedPreferences("clipboard", Context.MODE_PRIVATE);
         clipboard = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
+        reload();
+        prune();
+    }
+
+    private void reload() {
+        String saved = preferences.getString("history", "[]");
+        if (saved.equals(savedHistory)) { return; }
+        savedHistory = saved;
+        entries.clear();
         try {
-            JSONArray saved = new JSONArray(preferences.getString("history", "[]"));
-            for (int i = 0; i < saved.length(); i++) {
-                JSONObject item = saved.getJSONObject(i);
+            JSONArray items = new JSONArray(saved);
+            for (int i = 0; i < items.length(); i++) {
+                JSONObject item = items.getJSONObject(i);
                 entries.add(new Entry(item.getString("text"), item.optBoolean("pinned"), item.optLong("time")));
             }
         } catch (Exception ignored) { entries.clear(); }
-        prune();
     }
 
     ClipboardManager manager() { return clipboard; }
 
     String current() {
+        return plainText(currentClip());
+    }
+
+    private ClipData currentClip() {
         try {
-            ClipData data = clipboard.getPrimaryClip();
-            if (data == null || data.getItemCount() == 0) { return ""; }
-            CharSequence text = data.getItemAt(0).getText();
-            return text == null ? "" : text.toString();
-        } catch (SecurityException ignored) { return ""; }
+            return clipboard.getPrimaryClip();
+        } catch (SecurityException ignored) { return null; }
+    }
+
+    private static String plainText(ClipData data) {
+        if (data == null || data.getItemCount() == 0) { return ""; }
+        CharSequence text = data.getItemAt(0).getText();
+        return text == null ? "" : text.toString();
     }
 
     void capture(boolean privateEditor) {
-        String text = current();
-        if (privateEditor) { privateCopy = text; return; }
-        // 密码框里复制的内容离开密码框后也不自动写入历史，直到复制了另一段内容。
-        if (!privateCopy.isEmpty() && privateCopy.equals(text)) { return; }
-        privateCopy = "";
-        ClipDescription description = clipboard.getPrimaryClipDescription();
+        reload();
+        ClipData data = currentClip();
+        String text = plainText(data);
+        ClipDescription description = data == null ? null : data.getDescription();
+        long copiedAt = description == null ? 0 : description.getTimestamp();
+        // 仅保留复制事件的时间戳，不落盘私密文本；服务重建后继续拦截同一次复制。
+        if (privateEditor) {
+            if (copiedAt > 0) { preferences.edit().putLong("private_copy_time", copiedAt).apply(); }
+            return;
+        }
+        if (copiedAt > 0 && copiedAt == preferences.getLong("private_copy_time", -1)) { return; }
+        if (copiedAt > 0) { preferences.edit().remove("private_copy_time").apply(); }
         if (description != null && description.getExtras() != null
                 && description.getExtras().getBoolean("android.content.extra.IS_SENSITIVE", false)) { return; }
         if (TextUtils.isEmpty(text) || text.length() > 10000) { return; }
@@ -71,17 +92,26 @@ final class ClipboardStore {
         for (Entry entry : entries) { if (entry.text.equals(text)) { existing = entry; break; } }
         boolean pinned = existing != null && existing.pinned;
         if (existing != null) { entries.remove(existing); }
-        entries.add(0, new Entry(text, pinned, System.currentTimeMillis()));
+        // 读取和打开面板不能给旧内容续期；系统时间戳只在真正复制时更新。
+        if (copiedAt <= 0) { copiedAt = existing == null ? System.currentTimeMillis() : existing.time; }
+        entries.add(0, new Entry(text, pinned, copiedAt));
         prune();
         save();
     }
 
-    List<Entry> entries() { prune(); return new ArrayList<>(entries); }
+    List<Entry> entries() { reload(); prune(); return new ArrayList<>(entries); }
 
-    void pin(Entry entry) { entry.pinned = !entry.pinned; prune(); save(); }
+    void pin(Entry entry) {
+        reload();
+        for (Entry stored : entries) {
+            if (stored.text.equals(entry.text)) { stored.pinned = !stored.pinned; break; }
+        }
+        prune(); save();
+    }
 
     void remove(Entry entry) {
-        entries.remove(entry);
+        reload();
+        entries.removeIf(stored -> stored.text.equals(entry.text));
         // 当前复制也是历史条目时，一并删除系统副本，避免返回面板后又被记录。
         if (entry.text.equals(current())) { clearCurrent(); }
         save();
@@ -89,7 +119,7 @@ final class ClipboardStore {
 
     void clear() {
         entries.clear();
-        privateCopy = "";
+        preferences.edit().remove("private_copy_time").apply();
         clearCurrent();
         save();
     }
@@ -100,10 +130,12 @@ final class ClipboardStore {
     }
 
     private void prune() {
+        int previousSize = entries.size();
         long oldest = System.currentTimeMillis() - EXPIRY;
         entries.removeIf(entry -> !entry.pinned && entry.time < oldest);
         entries.sort((a, b) -> a.pinned == b.pinned ? Long.compare(b.time, a.time) : (a.pinned ? -1 : 1));
         while (entries.size() > LIMIT) { entries.remove(entries.size() - 1); }
+        if (entries.size() != previousSize) { save(); }
     }
 
     private void save() {
@@ -115,6 +147,7 @@ final class ClipboardStore {
                 saved.put(item);
             } catch (Exception ignored) { /* 仅保存可序列化的文本条目。 */ }
         }
-        preferences.edit().putString("history", saved.toString()).apply();
+        savedHistory = saved.toString();
+        preferences.edit().putString("history", savedHistory).apply();
     }
 }
