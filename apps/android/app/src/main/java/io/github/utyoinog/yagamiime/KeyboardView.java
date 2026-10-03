@@ -33,6 +33,8 @@ final class KeyboardView extends LinearLayout {
         void choose(int index);
         void reading(String reading);
         void clipboard();
+        void passwordManager();
+        void authenticator();
         void selectAll();
         void nextIme();
         void editorAction(EditorCommand command);
@@ -52,7 +54,7 @@ final class KeyboardView extends LinearLayout {
     private Runnable repeat;
     private boolean repeated;
     private boolean chinese = true;
-    private boolean shifted;
+    private LetterCase letterCase = LetterCase.LOWER;
     private int page;
     private int typingPage;
     private boolean phoneNumbers;
@@ -87,9 +89,11 @@ final class KeyboardView extends LinearLayout {
         });
         addView(strip, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         LinearLayout toolbar = menu("工具栏");
-        clipboardKey = toolbar(toolbar, "剪贴板", KeyIcon.CLIPBOARD, actions::clipboard);
-        toolbar(toolbar, "编辑", KeyIcon.EDIT, this::showEditing);
         toolbar(toolbar, "全选", KeyIcon.SELECT, actions::selectAll);
+        toolbar(toolbar, "编辑", KeyIcon.EDIT, this::showEditing);
+        toolbar(toolbar, "双因素验证", KeyIcon.AUTHENTICATOR, actions::authenticator).setTooltipText("Google 验证器");
+        toolbar(toolbar, "密码管理器", KeyIcon.PASSWORD, actions::passwordManager).setTooltipText("Bitwarden");
+        clipboardKey = toolbar(toolbar, "剪贴板", KeyIcon.CLIPBOARD, actions::clipboard);
         toolbar(toolbar, "收起键盘", KeyIcon.HIDE, actions::hide);
         body = new LinearLayout(context);
         body.setOrientation(VERTICAL);
@@ -119,7 +123,7 @@ final class KeyboardView extends LinearLayout {
                 && configuredPrivate == privateEditor && configuredType == inputType) { return; }
         configured = true; configuredPrivate = privateEditor; configuredType = inputType;
         this.chinese = chinese; this.enterLabel = enterLabel;
-        shifted = false;
+        letterCase = LetterCase.LOWER;
         phoneNumbers = false; signedNumbers = false; decimalNumbers = false;
         clipboardKey.setContentDescription(privateEditor ? "粘贴" : "剪贴板");
         int type = inputType & android.text.InputType.TYPE_MASK_CLASS;
@@ -284,9 +288,13 @@ final class KeyboardView extends LinearLayout {
         }
         LinearLayout row = row();
         function(row, "切换输入法", KeyIcon.GLOBE, actions::nextIme, SIDE);
-        TextView space = add(row, "空格", false, actions::space, 3);
+        TextView numbers = add(row, "123", true, actions::numbers, 1);
+        numbers.setContentDescription("切换数字模式");
+        TextView space = add(row, "空格", false, actions::space, 1);
         space.setTextSize(15); space.setTextColor(style.muted);
         space.setOnLongClickListener(ignored -> { actions.nextIme(); return true; });
+        TextView english = add(row, "EN", true, actions::mode, 1);
+        english.setContentDescription("切换英语模式");
         addEnter(row, SIDE);
         addRow(row);
     }
@@ -297,21 +305,39 @@ final class KeyboardView extends LinearLayout {
             LinearLayout row = row();
             if (r == 1) { row.addView(new View(getContext()), new LayoutParams(0, 1, 0.5f)); }
             if (r == 2) {
-                TextView shift = function(row, shifted ? "⇧ ON" : "⇧", KeyIcon.SHIFT,
-                        () -> { shifted = !shifted; showLetters(); }, 1.5f);
-                if (shifted) { style.primary(shift); style.icon(shift, KeyIcon.SHIFT, false, 22); }
+                String label = letterCase == LetterCase.LOWER ? "⇧" : letterCase == LetterCase.SINGLE_UPPER ? "⇧ ON" : "⇧ LOCK";
+                KeyIcon icon = letterCase == LetterCase.CAPS_LOCK ? KeyIcon.CAPS_LOCK : KeyIcon.SHIFT;
+                TextView shift = function(row, label, icon, () -> {
+                    letterCase = letterCase == LetterCase.LOWER ? LetterCase.SINGLE_UPPER
+                            : letterCase == LetterCase.SINGLE_UPPER ? LetterCase.CAPS_LOCK : LetterCase.LOWER;
+                    showLetters();
+                }, 1.5f);
+                if (android.os.Build.VERSION.SDK_INT >= 30) {
+                    shift.setStateDescription(letterCase == LetterCase.LOWER ? "小写"
+                            : letterCase == LetterCase.SINGLE_UPPER ? "单次大写" : "大写锁定");
+                }
+                if (letterCase != LetterCase.LOWER) { style.primary(shift); style.icon(shift, icon, false, 22); }
             }
             for (char letter : rows[r].toCharArray()) {
-                add(row, String.valueOf(shifted ? Character.toUpperCase(letter) : letter), false, () -> {
-                    actions.character(shifted ? Character.toUpperCase(letter) : letter);
-                    if (shifted) { shifted = false; showLetters(); }
+                add(row, String.valueOf(letterCase == LetterCase.LOWER ? letter : Character.toUpperCase(letter)), false, () -> {
+                    actions.character(letterCase == LetterCase.LOWER ? letter : Character.toUpperCase(letter));
+                    if (letterCase == LetterCase.SINGLE_UPPER) { letterCase = LetterCase.LOWER; showLetters(); }
                 }, 1);
             }
             if (r == 1) { row.addView(new View(getContext()), new LayoutParams(0, 1, 0.5f)); }
             if (r == 2) { addDelete(row, 1.8f); }
             addRow(row);
         }
-        bottom();
+        LinearLayout bottom = row();
+        add(bottom, "中文", true, actions::mode, SIDE);
+        add(bottom, "123", true, actions::numbers, 1);
+        function(bottom, "符号", KeyIcon.SYMBOLS, this::showSymbols, 1);
+        TextView space = add(bottom, "空格", false, actions::space, 3);
+        space.setOnLongClickListener(ignored -> { actions.nextIme(); return true; });
+        add(bottom, ",", true, () -> actions.text(","), 1);
+        add(bottom, ".", true, () -> actions.text("."), 1);
+        addEnter(bottom, SIDE);
+        addRow(bottom);
     }
 
     private void bottom() {
@@ -411,7 +437,8 @@ final class KeyboardView extends LinearLayout {
 
     private TextView toolbar(LinearLayout row, String label, KeyIcon icon, Runnable action) {
         TextView key = style.key(label, true, action);
-        style.toolbar(key, icon, false);
+        style.circleToolbar(key, icon);
+        key.setTooltipText(label);
         row.addView(key, new LayoutParams(style.dp(48), ViewGroup.LayoutParams.MATCH_PARENT));
         return key;
     }
