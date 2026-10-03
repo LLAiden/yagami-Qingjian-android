@@ -44,6 +44,8 @@ final class NativeBridge implements AutoCloseable {
         nativeSetNineKey(handle, enabled);
     }
 
+    void setFuzzy(int mask) { nativeSetFuzzy(handle, mask); }
+
     void lockReading(String reading) {
         nativeLockReading(handle, reading);
     }
@@ -65,5 +67,6 @@ final class NativeBridge implements AutoCloseable {
     private static native String nativeTakeRaw(long handle);
     private static native String nativeSnapshot(long handle);
     private static native void nativeSetNineKey(long handle, boolean enabled);
+    private static native void nativeSetFuzzy(long handle, int mask);
     private static native void nativeLockReading(long handle, String reading);
 }
