@@ -22,6 +22,14 @@ TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
 
 ## crates/qingjian-core
 
+九键拼音在 `engine/nine_key/`：`Engine::set_nine_key` 开启数字方案，`nine_key_readings` 返回下一音节的
+消歧选项，`lock_nine_key_syllable` 确认音节。将主词库、附加词库和开启时已有的用户词编码成电话键盘的
+2–9 数字索引；二分查询完整词、最后音节补全和可逐词上屏的前缀词。输入最长 64 键，词候选最多 500 条；
+整句动态规划的 beam 为 5，每个片段最多取 24 个词，输出最多 3 个整句候选，使用已有词频与语言模型。
+候选的原拼音音节保留在 `Candidate.syllables`，上屏按其数字编码消耗输入；退格、清空、原样上屏清除音节锁定。
+关闭方案继续原有全拼查询。CLI `--nine-key` 可用真实产品词库验证数字输入，设计与边界见
+[九键拼音](../design/nine-key.md)。
+
 模块：`composition`（缓冲区与光标；中文模式下 Shift+字母按小写进 `buffer` 参与匹配、大写记在 `shifted`，`typed_text` 还原后用于原样上屏）/ `parser` / `correction`（拼写纠错：整段一处编辑的候选纠正 + `typo` 音节级敲错变体表，后者进整句词图当带代价的边）/
 `candidate` / `ranking` / `shortcut` / `sentence` / `fuzzy` / `shuangpin`（双拼：七套方案键位表、键 → 全拼解码与消耗换算）/ `zhuyin`（大千注音：键 → 注音符号 → 拼音，`[general] zhuyin` 开关，声调只判音节完整不进查询）/ `emoji` /
 `english`（英文模式候选）/ `engine`（`query::EnglishTail`：句末英文词并入整句，`woxiangxuehaorust` → 我想学好rust，尾段也像拼音时按分数与拼音读法比）。
@@ -292,9 +300,17 @@ DLL 不读文件、不查 mtime。`SessionOpened` 只回过协议版本对得上
 
 ## apps/android
 
-非官方 Android MVP 壳：`YagamiInputMethodService` 用原生 Java View 画软键盘和横向候选栏，JNI crate `yagami-android-native`
-持有 `Engine`。Java 把字母、退格、候选序号喂给 JNI；JNI 返回 JSON 候选快照（拼音、候选文本、单一学习语言译词），
-上屏仍走 Core 的 `commit` / `take_raw`。基础词库与英译 TSV 随 APK 放在 assets，首次启动复制到应用私有目录后加载。
+`YagamiInputMethodService` 协调 `KeyboardView`、`EditorController` 和剪贴板；JNI crate `yagami-android-native` 持有 `Engine`。
+词库复制、加载和 JNI 调用在单一串行工作队列；主线程只更新视图和 InputConnection。会话编号隔离不同输入框，操作序号
+防止过期预编辑覆盖新状态。候选选择使用当前显示快照的序号，JNI 缓存该查询结果，避免点击时重新排序。
+JSON 包含 `preedit`、`raw`、最多 60 个 `candidates` 和 `readings`；数字解码与候选排序在 Core，Java 不查词库。
+基础词库与英译 TSV 随 APK 放在 assets，按应用版本复制到私有目录后加载。
+`KeyboardView` 顶栏在每个面板保留收起入口，拼音行固定 32dp，避免输入时窗口高度变化导致按键跳位；普通按键行高
+竖屏 57dp、横屏 40dp。窗口使用导航栏与屏幕缺口 insets，横屏关闭全屏编辑。
+选区删除使用 `commitText("", 1)`，无可读取选区时回退 DEL；普通退格按 Unicode 字素簇删除，避免拆开组合 emoji。
+`ClipboardStore` 在键盘可见时捕获普通文本，SharedPreferences 保存最多 30 条，未固定条目 24 小时过期；
+私密字段和 Android 敏感标记不入历史，清空同时清除当前系统剪贴板。
+Debug 使用 `.preview` 包名与独立名称，测试页仅存在于 Debug 源集中。
 当前产物含 `arm64-v8a` 与 `x86_64`，构建和安装步骤见 `apps/android/README.md`。
 
 ## assets
