@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Yagami 输入法预览</string>
+    <string name="ime_subtype_name">Yagami 九键预览</string>
+</resources>
