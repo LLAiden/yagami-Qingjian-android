@@ -54,6 +54,24 @@ impl MutedLearner {
 }
 
 impl Learner for MutedLearner {
+    fn record_sentence_choice(&mut self, input: &str, candidate: &Candidate) {
+        if !self.muted() {
+            self.inner.record_sentence_choice(input, candidate);
+        }
+    }
+
+    fn choice_priority(&self, input: &str, text: &str) -> u64 {
+        self.inner.choice_priority(input, text)
+    }
+
+    fn recalled_candidates(&self, input: &str) -> Vec<Candidate> {
+        if self.muted() {
+            Vec::new()
+        } else {
+            self.inner.recalled_candidates(input)
+        }
+    }
+
     fn record(&mut self, candidate: &Candidate) {
         if !self.muted() {
             self.inner.record(candidate);
