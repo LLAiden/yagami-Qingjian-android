@@ -3,13 +3,11 @@ package io.github.utyoinog.yagamiime;
 
 import android.content.Context;
 import android.content.res.Configuration;
-import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -23,6 +21,7 @@ final class CandidatePanel extends LinearLayout {
     private final LinearLayout rows;
     private final Consumer<Integer> choose;
     private final int columns;
+    private String contents = "";
 
     CandidatePanel(Context context, JSONArray candidates, Consumer<Integer> choose) {
         super(context);
@@ -46,31 +45,20 @@ final class CandidatePanel extends LinearLayout {
     }
 
     void update(JSONArray candidates) {
-        title.setText("候选 · 共 " + candidates.length() + " 项 · 长按查看译词");
+        String next = candidates.toString();
+        if (next.equals(contents)) { return; }
+        contents = next;
+        title.setText("候选 · 共 " + candidates.length() + " 项 · 英语释义在下方");
         rows.removeAllViews();
         for (int offset = 0; offset < candidates.length(); offset += columns) {
             LinearLayout row = new LinearLayout(getContext());
             for (int column = 0; column < columns; column++) {
                 final int index = offset + column;
                 JSONObject candidate = candidates.optJSONObject(index);
-                String text = candidate == null ? "" : candidate.optString("text");
-                TextView key = style.key(text, false, () -> choose.accept(index));
-                key.setTextSize(17);
-                key.setMaxLines(2);
-                key.setEllipsize(TextUtils.TruncateAt.END);
-                key.setPadding(style.dp(8), 0, style.dp(8), 0);
-                key.setContentDescription("展开候选 " + text);
+                CandidateKey key = new CandidateKey(getContext(), style, candidate == null ? new JSONObject() : candidate,
+                        true, index == 0, () -> choose.accept(index));
                 if (candidate == null) { key.setVisibility(INVISIBLE); }
-                else {
-                    String gloss = candidate.optString("gloss");
-                    if (!gloss.isEmpty()) {
-                        key.setOnLongClickListener(ignored -> {
-                            Toast.makeText(getContext(), text + "：" + gloss, Toast.LENGTH_LONG).show();
-                            return true;
-                        });
-                    }
-                }
-                LayoutParams cell = new LayoutParams(0, style.dp(52), 1);
+                LayoutParams cell = new LayoutParams(0, style.dp(style.candidateHeight() + 4), 1);
                 cell.setMargins(style.dp(2), style.dp(2), style.dp(2), style.dp(2));
                 row.addView(key, cell);
             }
