@@ -1,5 +1,7 @@
 # Android 0.2.1 预览版验收
 
+后续 0.2.2 的十轮自查、完整验收及限制见 [十轮自查记录](android-ten-round-audit.md)。
+
 验收日期：2026-10-03。基线：Utyoin-OG/yagami-Qingjian-android 的
 `79d9dac7ce0c156b8dcf76fd885f0f01a4495cbb`。本次为可与原版并存的预览包，不作为厂商真机正式发布记录。
 
