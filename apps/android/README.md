@@ -66,7 +66,11 @@ YAGAMI_KEY_PASSWORD        签名密钥密码
 
 0.2.6 将英语底行数字与中文切换键分别紧邻空格左侧和右侧，保留居中空格与英文标点。
 数字底行中央为 `EN | 0 | 拼音`，空格位于左侧功能列；圆底图标缩为 18dp；密码管理器优先打开 Bitwarden 保险库。
-版本号为 0.2.6 / versionCode 13，可覆盖升级同签名的 0.2.0–0.2.5 预览包。
+版本号为 0.2.6 / versionCode 13，可覆盖升级同签名的此前预览包。
+
+0.2.7 将工具与候选合并到固定高度顶栏：空闲显示工具，输入时原位显示候选与英语释义，仅保留收起工具按钮。
+九键组合移到左侧滚动栏，不增加键盘高度；输入区域去除重复入口，动作键保留统一背景间距。
+修复数字输入框手动选择 EN / 拼音仍停留数字页。版本号为 0.2.7 / versionCode 14，可覆盖升级同签名的此前预览包。
 
 ## 自测
 
@@ -84,7 +88,7 @@ adb shell am instrument -w io.github.utyoinog.yagamiime.preview.test/android.tes
 
 交互验收在真实系统 IME 窗口注入触摸事件，覆盖九键候选与消歧、数字布局、英文全键盘、选区与 emoji 删除、长按删除、
 剪贴板去重与删除、密码框、展开候选、中英文记忆、数字页恢复、各面板及系统收起、快速输入、回车动作、导航模式及横屏。测试环境和结果见
-`docs/notes/android-layout-validation.md`（0.2.4–0.2.5）、`docs/notes/android-visual-validation.md`（0.2.3）、`docs/notes/android-ten-round-audit.md`（0.2.2）与 `docs/notes/android-ux-validation.md`（0.2.1）；模拟器验证与厂商真机验证分别记录。
+`docs/notes/android-layout-validation.md`（0.2.4–0.2.7）、`docs/notes/android-visual-validation.md`（0.2.3）、`docs/notes/android-ten-round-audit.md`（0.2.2）与 `docs/notes/android-ux-validation.md`（0.2.1）；模拟器验证与厂商真机验证分别记录。
 
 ## 许可证与来源
 
