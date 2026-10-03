@@ -29,5 +29,7 @@ Yagami 输入法与 qingjian-team 不存在隶属、授权或官方发布关系�
 
 0.2.4 按用户要求调整候选、剪贴板、编辑菜单和输入区顺序；候选空闲时隐藏，菜单使用靠右的图标；输入精简为拼音九键、英语全键盘、数字九键，标点统一英文半角，并增加布局交互回归。
 
+0.2.5 按用户补充要求将剪贴板、编辑、全选和收起合并为同一图标工具栏，继续保留候选显隐与连续输入回归。
+
 Android 使用腾讯 [MMKV 2.4.2](https://github.com/Tencent/MMKV/tree/v2.4.2)，许可为 BSD-3-Clause，版权归腾讯及对应贡献者。
 其完整许可随 APK 打包在 `assets/licenses/mmkv.txt`，源码副本见 [许可文件](apps/android/app/src/main/assets/licenses/mmkv.txt)。
