@@ -5,7 +5,7 @@ import android.graphics.Rect;
 
 public final class KeyboardEnglishTest extends KeyboardTestCase {
     public void testShiftOnceThenTwiceLocksUppercaseUntilReleased() throws Exception {
-        click("EN"); click("⇧"); click("H"); click("i");
+        click("切换英语模式"); click("⇧"); click("H"); click("i");
         await(() -> activity.message.getText().toString().equals("Hi"));
         click("⇧"); click("⇧ ON");
         assertEquals("大写锁定", node("⇧ LOCK").getStateDescription().toString());
@@ -16,15 +16,15 @@ public final class KeyboardEnglishTest extends KeyboardTestCase {
     }
 
     public void testEnglishSpaceIsCenteredAndCapsLockSurvivesTemporaryPanels() throws Exception {
-        click("EN");
+        click("切换英语模式");
         Rect keyboard = bounds("输入键盘"), space = bounds("空格");
         assertTrue("英语空格必须居中", Math.abs(space.centerX() - keyboard.centerX()) <= 3);
         assertEquals(bounds("123").centerY(), space.centerY());
         assertEquals("数字切换紧邻空格左侧", bounds("123").right, space.left);
         assertEquals("拼音切换紧邻空格右侧", space.right, bounds("中文").left);
-        click("⇧"); click("⇧ ON"); click("123"); click("1"); click("ABC");
-        click("A"); click("符号"); click("?"); click("ABC"); click("B");
+        click("⇧"); click("⇧ ON"); click(find("切换数字模式") != null ? "切换数字模式" : "123"); click("1"); click(find("切换英语模式") != null ? "切换英语模式" : "ABC");
+        click("A"); click("符号"); click("?"); click(find("切换英语模式") != null ? "切换英语模式" : "ABC"); click("B");
         await(() -> activity.message.getText().toString().equals("1A?B"));
-        click("中文"); click("EN"); node("a"); node("⇧");
+        click("中文"); click("切换英语模式"); node("a"); node("⇧");
     }
 }
