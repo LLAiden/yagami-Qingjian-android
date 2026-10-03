@@ -76,6 +76,35 @@ final class KeyboardSettingsPanel extends LinearLayout {
             fuzzyChoices.addView(choice, cell);
         }
         content.addView(fuzzyChoices);
+        TextView privacyLabel = new TextView(context);
+        privacyLabel.setText("本地隐私 · 数据加密保存，不联网");
+        privacyLabel.setTextColor(style.text); privacyLabel.setTextSize(13);
+        privacyLabel.setPadding(style.dp(8), style.dp(8), 0, 0);
+        content.addView(privacyLabel, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, style.dp(32)));
+        LinearLayout privacyChoices = new LinearLayout(context);
+        String[] privacyNames = {"learning", "clipboard_history"};
+        String[] privacyLabels = {"本地选词学习", "剪贴板历史"};
+        boolean[] enabled = {preferences.learning, preferences.clipboardHistory};
+        for (int i = 0; i < privacyNames.length; i++) {
+            final String name = privacyNames[i]; final boolean on = enabled[i];
+            TextView choice = style.key((on ? "✓ " : "") + privacyLabels[i], true,
+                    () -> setting.accept(name, on ? 0 : 1));
+            choice.setTextSize(14); choice.setContentDescription(privacyLabels[i]);
+            privacyChoices.addView(choice, new LayoutParams(0, style.dp(48), 1));
+        }
+        content.addView(privacyChoices);
+        TextView note = new TextView(context);
+        note.setText("密码和私密输入不学习。关闭剪贴板历史会删除已存记录，当前复制仍可粘贴。");
+        note.setTextColor(style.muted); note.setTextSize(12);
+        note.setPadding(style.dp(8), style.dp(8), style.dp(8), style.dp(8));
+        content.addView(note);
+        LinearLayout clear = new LinearLayout(context);
+        clear.addView(style.key("清除学习数据", true, () -> setting.accept("clear_learning", 1)),
+                new LayoutParams(0, style.dp(48), 1));
+        clear.addView(style.key("清除剪贴板历史", true, () -> setting.accept("clear_history", 1)),
+                new LayoutParams(0, style.dp(48), 1));
+        content.addView(clear);
+        scroll.setContentDescription("键盘设置列表");
         scroll.addView(content);
         addView(scroll, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
     }
