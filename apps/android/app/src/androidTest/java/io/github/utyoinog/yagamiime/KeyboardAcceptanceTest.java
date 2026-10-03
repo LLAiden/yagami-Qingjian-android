@@ -80,7 +80,7 @@ public final class KeyboardAcceptanceTest extends KeyboardTestCase {
     }
 
     public void testEnglishChoiceSurvivesEditorSwitch() throws Exception {
-        click("EN");
+        click("切换英语模式");
         click("h");
         getInstrumentation().runOnMainSync(() -> activity.number.requestFocus());
         await(() -> find("1") != null);
@@ -287,7 +287,7 @@ public final class KeyboardAcceptanceTest extends KeyboardTestCase {
 
     public void testHideFromNumbersSymbolsAndClipboard() throws Exception {
         for (String panel : new String[]{"123", "符号", "剪贴板"}) {
-            click(panel);
+            click(panel.equals("123") && find("切换数字模式") != null ? "切换数字模式" : panel);
             click("收起键盘");
             await(() -> find("收起键盘") == null);
             showMessage();
@@ -298,7 +298,7 @@ public final class KeyboardAcceptanceTest extends KeyboardTestCase {
         typeDigits("64426");
         click("候选 你好");
         await(() -> activity.message.getText().toString().equals("你好"));
-        click("EN");
+        click("切换英语模式");
         for (String letter : new String[]{"h", "i"}) { click(letter); }
         await(() -> activity.message.getText().toString().equals("你好hi"));
         click("中文");
