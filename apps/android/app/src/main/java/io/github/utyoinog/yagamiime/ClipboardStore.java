@@ -34,7 +34,7 @@ final class ClipboardStore {
     private String savedHistory;
 
     ClipboardStore(Context context) {
-        preferences = context.getSharedPreferences("clipboard", Context.MODE_PRIVATE);
+        preferences = LocalStorage.open(context, "clipboard");
         clipboard = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
         reload();
         prune();
