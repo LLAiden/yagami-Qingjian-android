@@ -199,11 +199,13 @@ impl Engine {
             return true;
         }
         self.note_edit();
+        self.nine_key_locked.clear();
         self.composition.backspace()
     }
 
     pub fn clear(&mut self) {
         self.composition.clear();
+        self.nine_key_locked.clear();
         self.aux_code = None;
         self.chain.leave_buffer();
         // 壳给的光标前文只对这段组句有效，下一段第一键再读
@@ -332,6 +334,7 @@ impl Engine {
     /// 用一段完整拼音替换当前缓冲区，供 CLI 和测试一次性喂入。
     pub fn set_input(&mut self, input: &str) {
         self.composition.clear();
+        self.nine_key_locked.clear();
         for c in input.chars() {
             self.push(c);
         }
@@ -339,6 +342,7 @@ impl Engine {
 
     /// 放弃当前拼音，原样返回给壳（通常是用户按回车要上屏字母本身）。
     pub fn take_raw(&mut self) -> String {
+        self.nine_key_locked.clear();
         // 回车原样上屏拼音段：码段（没上屏的码）到此结束
         self.aux_code = None;
         // 纠错生效时用户仍按了回车：这个串就是要原样打的，记下来以后不再纠它
