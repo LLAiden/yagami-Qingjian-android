@@ -2,8 +2,8 @@
 > 基于青简开源核心开发的Android 拼音输入法，支持 Android 8.0+ 与 HarmonyOS Android 兼容环境。
 [原版正式 APK](https://github.com/Utyoin-OG/yagami-Qingjian-android/releases/latest)
 
-本 fork 的 `feat/android-nine-key-ux` 分支提供 **0.2.6 九键预览版**，预览包名称为「Yagami 输入法预览」，
-可与原版并存。已进行 Android 15 模拟器自测，0.2.5 已覆盖安装到小米 Android 16 手机供体验，真实应用兼容矩阵仍待验证；构建与验收步骤见
+本 fork 的 `feat/android-nine-key-ux` 分支提供 **0.2.7 九键预览版**，预览包名称为「Yagami 输入法预览」，
+可与原版并存。已进行 Android 15 模拟器自测，预览包可覆盖安装到小米 Android 16 手机供体验，真实应用兼容矩阵仍待验证；构建与验收步骤见
 [Android 说明](apps/android/README.md)、[布局验收](docs/notes/android-layout-validation.md) 和 [本轮产品需求](docs/plan/android-product-optimization.md)。下面原版正式包的下载与覆盖升级说明不适用于预览包。
 
 Yagami 是一个面向 Android 的拼音与语言学习输入法，基于Qingjian
@@ -16,9 +16,9 @@ Yagami 是一个面向 Android 的拼音与语言学习输入法，基于Qingjia
 - 只保留拼音九键、英语全键盘、数字九键三种输入模式
 - 拼音九键底行 `123 | 空格 | EN` 等宽，空格只占一个键位
 - 数字底行中央 `EN | 0 | 拼音`，空格移到左侧功能键位
-- 候选区、工具栏、输入区从上到下排列；候选区空闲时隐藏，工具栏圆形底图标居中、集中靠右
+- 顶栏空闲显示工具、输入时显示候选与英语释义，只保留收起工具按钮；整块键盘高度保持不变
 - 工具栏按全选、编辑、验证器、密码管理器、剪贴板、收起的顺序排列
-- 居中的九键拼音、独立拼音选项；候选下方直接显示英语释义，长按查看释义提示
+- 居中的九键拼音、左侧可滚动的独立拼音选项；候选下方直接显示英语释义，长按查看释义提示
 - 三组前后鼻音模糊音独立开关：`an/ang`、`en/eng`、`in/ing`
 - 点击候选或空格上屏，候选可展开为多列列表
 - 中文 / 英文切换与临时大写，中英文选择会保存
