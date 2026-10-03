@@ -30,7 +30,7 @@ public abstract class KeyboardTestCase extends InstrumentationTestCase {
         service.flags |= AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
         getInstrumentation().getUiAutomation().setServiceInfo(service);
         LocalStorage.open(getInstrumentation().getTargetContext(), "keyboard").edit()
-                .clear().putBoolean("nine_key", true).putBoolean("chinese", true).commit();
+                .clear().putBoolean("nine_key", true).putBoolean("chinese", true).putInt("learning", 0).commit();
         String component = getInstrumentation().getTargetContext().getPackageName() + "/io.github.utyoinog.yagamiime.YagamiInputMethodService";
         shell("ime enable " + component);
         shell("ime set " + component);
@@ -47,6 +47,8 @@ public abstract class KeyboardTestCase extends InstrumentationTestCase {
 
     @Override protected void tearDown() throws Exception {
         if (activity != null) { getInstrumentation().runOnMainSync(() -> activity.finish()); }
+        // 等宿主结束事件离开主线程，避免下一例启动与旧窗口关闭交叉。
+        getInstrumentation().waitForIdleSync();
         super.tearDown();
     }
 
