@@ -9,6 +9,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 import java.util.function.Consumer;
+import java.util.List;
 
 final class ClipboardPanel extends LinearLayout {
     private final ClipboardStore store;
@@ -39,11 +40,17 @@ final class ClipboardPanel extends LinearLayout {
         items.setOrientation(VERTICAL);
         scroll.addView(items);
         String current = store.current();
+        List<ClipboardStore.Entry> entries = privateEditor ? java.util.Collections.emptyList() : store.entries();
+        ClipboardStore.Entry currentEntry = null;
+        for (ClipboardStore.Entry entry : entries) {
+            if (entry.text.equals(current)) { currentEntry = entry; break; }
+        }
         if (!current.isEmpty()) {
-            addItem(items, current, "当前复制", null);
+            addItem(items, current, "当前复制", currentEntry);
         }
         if (!privateEditor) {
-            for (ClipboardStore.Entry entry : store.entries()) {
+            for (ClipboardStore.Entry entry : entries) {
+                if (entry.text.equals(current)) { continue; }
                 addItem(items, entry.text, entry.pinned ? "已固定" : "历史", entry);
             }
         }
