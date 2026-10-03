@@ -23,6 +23,23 @@ fn java_string(env: &mut JNIEnv<'_>, text: &str) -> jstring {
         .map_or(std::ptr::null_mut(), JString::into_raw)
 }
 
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_io_github_utyoinog_yagamiime_NativeBridge_nativeSetFuzzy(
+    _env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    handle: jlong,
+    mask: jint,
+) {
+    if let Some(engine) = from_handle(handle) {
+        engine.engine.set_fuzzy(qingjian_core::FuzzyRules {
+            an_ang: mask & 1 != 0,
+            en_eng: mask & 2 != 0,
+            in_ing: mask & 4 != 0,
+            ..qingjian_core::FuzzyRules::default()
+        });
+    }
+}
+
 fn path(env: &mut JNIEnv<'_>, value: JString<'_>) -> Option<String> {
     env.get_string(&value).ok().map(|value| value.into())
 }
