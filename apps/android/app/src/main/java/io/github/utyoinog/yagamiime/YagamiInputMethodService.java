@@ -329,22 +329,27 @@ public final class YagamiInputMethodService extends InputMethodService implement
     }
 
     @Override public void passwordManager() {
-        openExternalApp("com.x8bit.bitwarden", "Bitwarden");
+        openExternalApp("com.x8bit.bitwarden", "Bitwarden", "bitwarden://my_vault");
     }
 
     @Override public void authenticator() {
-        openExternalApp("com.google.android.apps.authenticator2", "Google 验证器");
+        openExternalApp("com.google.android.apps.authenticator2", "Google 验证器", null);
     }
 
-    private void openExternalApp(String packageName, String label) {
+    private void openExternalApp(String packageName, String label, String deepLink) {
         android.content.Intent launch = getPackageManager().getLaunchIntentForPackage(packageName);
         if (launch == null) {
             Toast.makeText(this, "未安装 " + label, Toast.LENGTH_SHORT).show();
             return;
         }
-        launch.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+        if (deepLink != null) {
+            android.content.Intent shortcut = new android.content.Intent(android.content.Intent.ACTION_VIEW,
+                    android.net.Uri.parse(deepLink)).setPackage(packageName);
+            if (shortcut.resolveActivity(getPackageManager()) != null) { launch = shortcut; }
+        }
+        final android.content.Intent target = launch.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
         enqueue(engine -> finish(engine), connection -> {
-            try { startActivity(launch); }
+            try { startActivity(target); }
             catch (android.content.ActivityNotFoundException | SecurityException error) {
                 Toast.makeText(this, "无法打开 " + label, Toast.LENGTH_SHORT).show();
             }
