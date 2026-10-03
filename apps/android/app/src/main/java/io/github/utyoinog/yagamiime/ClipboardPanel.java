@@ -31,6 +31,7 @@ final class ClipboardPanel extends LinearLayout {
         header.setGravity(Gravity.CENTER_VERTICAL);
         TextView title = new TextView(getContext());
         title.setText(privateEditor ? "剪贴板 · 隐私输入" : "剪贴板 · 普通记录保留 24 小时");
+        title.setTextColor(style.text);
         title.setTextSize(13);
         header.addView(title, new LayoutParams(0, style.dp(40), 1));
         header.addView(style.key("清空", true, () -> { store.clear(); refresh(); }), new LayoutParams(style.dp(64), style.dp(36)));
@@ -57,6 +58,7 @@ final class ClipboardPanel extends LinearLayout {
         if (items.getChildCount() == 0) {
             TextView empty = new TextView(getContext());
             empty.setText("复制文字后，可在这里点击粘贴");
+            empty.setTextColor(style.text);
             empty.setGravity(Gravity.CENTER);
             items.addView(empty, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, style.dp(100)));
         }
