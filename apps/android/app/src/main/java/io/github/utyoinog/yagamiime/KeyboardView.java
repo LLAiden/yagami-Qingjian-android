@@ -352,7 +352,8 @@ final class KeyboardView extends LinearLayout {
         add(bottom, "123", true, actions::numbers, 1);
         TextView space = add(bottom, "空格", false, actions::space, 3);
         space.setOnLongClickListener(ignored -> { actions.nextIme(); return true; });
-        add(bottom, "中文", true, actions::mode, 1);
+        TextView language = add(bottom, "中文", true, actions::mode, 1);
+        language.setSingleLine(); language.setTextSize(14);
         add(bottom, ".", true, () -> actions.text("."), 1);
         addEnter(bottom, SIDE);
         addRow(bottom);
