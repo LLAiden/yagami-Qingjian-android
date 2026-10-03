@@ -59,6 +59,9 @@ YAGAMI_KEY_PASSWORD        签名密钥密码
 版本号为 0.2.4 / versionCode 11，可覆盖升级同签名的 0.2.0–0.2.3 预览包。
 本轮验收见 `docs/notes/android-layout-validation.md`；已确认需求见 `docs/plan/android-product-optimization.md`。
 
+0.2.5 根据补充要求，将剪贴板、编辑、全选和收起合并为同一靠右图标工具栏，最终顺序为候选区、工具栏、输入区。
+版本号为 0.2.5 / versionCode 12，可覆盖升级同签名的 0.2.0–0.2.4 预览包。
+
 ## 自测
 
 安装已启动的 API 30+ 测试设备；验收会切换测试设备的导航模式和当前输入法。
@@ -75,7 +78,7 @@ adb shell am instrument -w io.github.utyoinog.yagamiime.preview.test/android.tes
 
 交互验收在真实系统 IME 窗口注入触摸事件，覆盖九键候选与消歧、数字布局、英文全键盘、选区与 emoji 删除、长按删除、
 剪贴板去重与删除、密码框、展开候选、中英文记忆、数字页恢复、各面板及系统收起、快速输入、回车动作、导航模式及横屏。测试环境和结果见
-`docs/notes/android-layout-validation.md`（0.2.4）、`docs/notes/android-visual-validation.md`（0.2.3）、`docs/notes/android-ten-round-audit.md`（0.2.2）与 `docs/notes/android-ux-validation.md`（0.2.1）；模拟器验证与厂商真机验证分别记录。
+`docs/notes/android-layout-validation.md`（0.2.4–0.2.5）、`docs/notes/android-visual-validation.md`（0.2.3）、`docs/notes/android-ten-round-audit.md`（0.2.2）与 `docs/notes/android-ux-validation.md`（0.2.1）；模拟器验证与厂商真机验证分别记录。
 
 ## 许可证与来源
 
