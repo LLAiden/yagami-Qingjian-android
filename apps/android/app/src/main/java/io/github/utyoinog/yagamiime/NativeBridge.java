@@ -1,6 +1,8 @@
 package io.github.utyoinog.yagamiime;
 
 final class NativeBridge implements AutoCloseable {
+    // 与 nativePush 的 ASCII 拼音长度限制同步，用于显示输入上限。
+    static final int MAX_INPUT_LENGTH = 64;
     static {
         System.loadLibrary("yagami_android_native");
     }
