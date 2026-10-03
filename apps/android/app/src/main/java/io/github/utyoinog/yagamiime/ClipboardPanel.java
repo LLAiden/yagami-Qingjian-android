@@ -33,8 +33,10 @@ final class ClipboardPanel extends LinearLayout {
         title.setText(privateEditor ? "剪贴板 · 隐私输入" : "剪贴板 · 普通记录保留 24 小时");
         title.setTextColor(style.text);
         title.setTextSize(13);
-        header.addView(title, new LayoutParams(0, style.dp(40), 1));
-        header.addView(style.key("清空", true, () -> { store.clear(); refresh(); }), new LayoutParams(style.dp(64), style.dp(36)));
+        header.addView(title, new LayoutParams(0, style.dp(style.toolbarHeight()), 1));
+        TextView clear = style.key("清空", true, () -> { store.clear(); refresh(); });
+        clear.setTextSize(12); style.icon(clear, KeyIcon.TRASH, true, 18);
+        header.addView(clear, new LayoutParams(style.dp(64), style.dp(style.toolbarHeight())));
         addView(header);
         ScrollView scroll = new ScrollView(getContext());
         LinearLayout items = new LinearLayout(getContext());
@@ -77,10 +79,10 @@ final class ClipboardPanel extends LinearLayout {
         row.addView(content, new LayoutParams(0, style.dp(60), 1));
         if (entry != null) {
             TextView pin = style.key(entry.pinned ? "取消固定" : "固定", true, () -> { store.pin(entry); refresh(); });
-            pin.setTextSize(12);
+            pin.setTextSize(11); style.iconAbove(pin, KeyIcon.PIN, 18);
             row.addView(pin, new LayoutParams(style.dp(60), style.dp(48)));
             TextView delete = style.key("删除", true, () -> { store.remove(entry); refresh(); });
-            delete.setTextSize(12);
+            style.icon(delete, KeyIcon.TRASH, false, 22);
             row.addView(delete, new LayoutParams(style.dp(48), style.dp(48)));
         }
         LayoutParams params = new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, style.dp(66));
