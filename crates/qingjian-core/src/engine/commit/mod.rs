@@ -126,7 +126,9 @@ impl Engine {
             CandidateKind::Emoji if candidate.syllables.is_empty() => self.whole_scope(),
             CandidateKind::Sentence => {
                 typos = self.accepted_typos(candidate);
-                self.consumed_by(candidate)
+                let consumed = self.consumed_by(candidate);
+                self.learner.record_sentence_choice(&consumed.1, candidate);
+                consumed
             }
             // emoji 按它对应词的音节消耗拼音，不记学习
             CandidateKind::Emoji => self.consumed_by(candidate),
