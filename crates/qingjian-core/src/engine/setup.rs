@@ -227,7 +227,7 @@ impl Engine {
     }
 
     pub fn with_fuzzy(mut self, rules: FuzzyRules) -> Self {
-        self.fuzzy = rules;
+        self.set_fuzzy(rules);
         self
     }
 
@@ -235,8 +235,11 @@ impl Engine {
     pub fn set_fuzzy(&mut self, rules: FuzzyRules) {
         if self.fuzzy != rules {
             self.forget_span_cache();
+            self.fuzzy = rules;
+            if self.nine_key.is_some() {
+                self.nine_key = Some(super::nine_key::Index::new(&self.all_dictionaries(), rules));
+            }
         }
-        self.fuzzy = rules;
     }
 
     pub fn fuzzy(&self) -> FuzzyRules {
