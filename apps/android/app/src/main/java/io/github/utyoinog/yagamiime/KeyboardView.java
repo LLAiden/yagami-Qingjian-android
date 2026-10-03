@@ -150,27 +150,32 @@ final class KeyboardView extends LinearLayout {
             LinearLayout row = row();
             if (r == 0) { add(row, chinese ? "拼音" : "ABC", true, this::showLetters, SIDE); }
             else if (r == 1) { function(row, "符号", KeyIcon.SYMBOLS, this::showSymbols, SIDE); }
-            else { add(row, phone ? "*" : signed ? "−" : "空格", true,
-                    () -> { if (phone || signed) { actions.text(phone ? "*" : "-"); } else { actions.space(); } }, SIDE); }
+            else { add(row, phone ? "*" : signed ? "−" : ".", true,
+                    () -> actions.text(phone ? "*" : signed ? "-" : "."), SIDE); }
             for (int c = 0; c < 3; c++) {
                 String digit = Integer.toString(r * 3 + c + 1);
                 digit(row, digit, "", () -> actions.text(digit), 1);
             }
             if (r == 0) { addDelete(row, SIDE); }
             else if (r == 1) { function(row, "剪贴板", KeyIcon.CLIPBOARD, actions::clipboard, SIDE); }
-            else { function(row, "收起键盘", KeyIcon.HIDE, actions::hide, SIDE); }
+            else if (phone || signed && decimal) {
+                String mark = phone ? "#" : ".";
+                add(row, mark, true, () -> actions.text(mark), SIDE);
+            } else { function(row, "收起键盘", KeyIcon.HIDE, actions::hide, SIDE); }
             addRow(row);
         }
         LinearLayout bottom = row();
-        add(bottom, chinese ? "拼音" : "ABC", true, this::showLetters, SIDE);
-        String mark = phone ? "*" : signed ? "−" : "空格";
-        add(bottom, mark, true, () -> {
-            if (mark.equals("空格")) { actions.space(); }
-            else { actions.text(mark.equals("−") ? "-" : mark); }
+        TextView space = add(bottom, "空格", false, actions::space, SIDE);
+        space.setOnLongClickListener(ignored -> { actions.nextIme(); return true; });
+        TextView english = add(bottom, "EN", true, () -> {
+            if (chinese) { actions.mode(); } else { showLetters(); }
         }, 1);
+        english.setContentDescription("切换英语模式");
         digit(bottom, "0", "", () -> actions.text("0"), 1);
-        String last = phone ? "#" : decimal ? "." : "空格";
-        add(bottom, last, true, () -> { if (last.equals("空格")) { actions.space(); } else { actions.text(last); } }, 1);
+        TextView pinyin = add(bottom, "拼音", true, () -> {
+            if (chinese) { showLetters(); } else { actions.mode(); }
+        }, 1);
+        pinyin.setContentDescription("切换拼音模式");
         addEnter(bottom, SIDE);
         addRow(bottom);
     }
@@ -329,12 +334,12 @@ final class KeyboardView extends LinearLayout {
             addRow(row);
         }
         LinearLayout bottom = row();
-        add(bottom, "中文", true, actions::mode, SIDE);
+        function(bottom, "符号", KeyIcon.SYMBOLS, this::showSymbols, SIDE);
+        add(bottom, ",", true, () -> actions.text(","), 1);
         add(bottom, "123", true, actions::numbers, 1);
-        function(bottom, "符号", KeyIcon.SYMBOLS, this::showSymbols, 1);
         TextView space = add(bottom, "空格", false, actions::space, 3);
         space.setOnLongClickListener(ignored -> { actions.nextIme(); return true; });
-        add(bottom, ",", true, () -> actions.text(","), 1);
+        add(bottom, "中文", true, actions::mode, 1);
         add(bottom, ".", true, () -> actions.text("."), 1);
         addEnter(bottom, SIDE);
         addRow(bottom);
