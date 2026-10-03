@@ -128,7 +128,7 @@ public final class KeyboardAuditTest extends KeyboardTestCase {
     }
 
     public void testHeightSettingKeepsNumericPage() throws Exception {
-        click("123"); click("1");
+        click(find("切换数字模式") != null ? "切换数字模式" : "123"); click("1");
         click("编辑"); click("设置"); click("高度 高");
         await(() -> LocalStorage.open(getInstrumentation().getTargetContext(), "keyboard").getInt("height", 0) == 1);
         click("返回键盘"); click("2");
