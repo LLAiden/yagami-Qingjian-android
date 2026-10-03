@@ -3,7 +3,6 @@ package io.github.utyoinog.yagamiime;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.content.res.Configuration;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
@@ -34,6 +33,8 @@ final class KeyboardView extends LinearLayout {
         void clipboard();
         void selectAll();
         void nextIme();
+        void editorAction(EditorCommand command);
+        void setting(String name, int value);
     }
 
     private final KeyboardStyle style;
@@ -48,6 +49,7 @@ final class KeyboardView extends LinearLayout {
     private final TextView schemeKey;
     private final TextView clipboardKey;
     private final int rowHeight;
+    private final int preferenceSignature;
     private Runnable repeat;
     private boolean repeated;
     private boolean chinese = true;
@@ -59,6 +61,7 @@ final class KeyboardView extends LinearLayout {
     private boolean signedNumbers;
     private boolean decimalNumbers;
     private JSONArray candidateItems = new JSONArray();
+    private CandidatePanel candidatePanel;
     private String candidateContents = "";
     private String readingContents = "";
     private String enterLabel = "换行";
@@ -67,13 +70,16 @@ final class KeyboardView extends LinearLayout {
         super(context);
         this.actions = actions;
         style = new KeyboardStyle(context);
-        rowHeight = context.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE ? 40 : 57;
+        KeyboardPreferences preferences = new KeyboardPreferences(context);
+        rowHeight = preferences.rowHeight();
+        preferenceSignature = preferences.signature();
         setOrientation(VERTICAL);
-        setBackgroundColor(KeyboardStyle.BACKGROUND);
+        setBackgroundColor(style.background);
         setPadding(style.dp(3), style.dp(2), style.dp(3), style.dp(4));
         LinearLayout toolbar = row();
         schemeKey = add(toolbar, "九键", true, actions::scheme, 1);
         clipboardKey = add(toolbar, "剪贴板", true, actions::clipboard, 1.3f);
+        add(toolbar, "编辑", true, this::showEditing, 1);
         add(toolbar, "全选", true, actions::selectAll, 1);
         TextView hide = add(toolbar, "⌄", true, actions::hide, 0.8f);
         hide.setContentDescription("收起键盘");
@@ -195,7 +201,8 @@ final class KeyboardView extends LinearLayout {
         reset(4);
         expandKey.setText("▴");
         expandKey.setContentDescription("收回候选");
-        body.addView(new CandidatePanel(getContext(), candidateItems, actions::choose),
+        candidatePanel = new CandidatePanel(getContext(), candidateItems, actions::choose);
+        body.addView(candidatePanel,
                 new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
         LinearLayout footer = row();
         add(footer, "返回键盘", true, this::showTypingPage, 3);
@@ -204,6 +211,31 @@ final class KeyboardView extends LinearLayout {
     }
 
     int page() { return page; }
+
+    private void showEditing() {
+        reset(5);
+        body.addView(new EditingPanel(getContext(), actions::editorAction, this::showTypingPage, this::showSettings),
+                new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+    }
+
+    void showSettings() {
+        reset(6);
+        body.addView(new KeyboardSettingsPanel(getContext(), actions::setting),
+                new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+        TextView back = style.key("返回键盘", true, this::showTypingPage);
+        body.addView(back,
+                new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, style.dp(40)));
+    }
+
+    boolean preferencesChanged() { return preferenceSignature != new KeyboardPreferences(getContext()).signature(); }
+
+    void restoreSettings(KeyboardView previous) {
+        typingPage = previous.typingPage;
+        phoneNumbers = previous.phoneNumbers;
+        signedNumbers = previous.signedNumbers;
+        decimalNumbers = previous.decimalNumbers;
+        showSettings();
+    }
 
     void snapshot(JSONObject snapshot) {
         candidates.removeAllViews();
@@ -218,6 +250,7 @@ final class KeyboardView extends LinearLayout {
         if (items == null || items.length() == 0) {
             TextView hint = new TextView(getContext());
             hint.setText(snapshot.optString("raw").isEmpty() ? (chinese ? (nineKey ? "九键拼音 · 点击候选上屏" : "全拼 · 点击候选上屏") : "English") : snapshot.optString("raw"));
+            hint.setTextColor(style.text);
             hint.setTextSize(14);
             hint.setGravity(Gravity.CENTER_VERTICAL);
             hint.setPadding(style.dp(12), 0, 0, 0);
@@ -253,9 +286,18 @@ final class KeyboardView extends LinearLayout {
         boolean visible = chinese && nineKey && options != null && options.length() > 0;
         // 输入中保持窗口高度不变，避免系统重布局时按键位置跳动。
         readingScroll.setVisibility(VISIBLE);
-        if (visible) {
+        if (snapshot.optString("raw").length() >= NativeBridge.MAX_INPUT_LENGTH) {
+            TextView limit = new TextView(getContext());
+            limit.setText("输入已满 · 请先选词或删除");
+            limit.setTextColor(style.accent);
+            limit.setTextSize(13);
+            limit.setContentDescription("输入长度提示");
+            limit.setPadding(style.dp(12), 0, 0, 0);
+            readings.addView(limit);
+        } else if (visible) {
             TextView label = new TextView(getContext());
             label.setText("选拼音 ");
+            label.setTextColor(style.text);
             readings.addView(label);
             for (int i = 0; i < options.length(); i++) {
                 String reading = options.optString(i);
@@ -268,13 +310,14 @@ final class KeyboardView extends LinearLayout {
         } else {
             TextView hint = new TextView(getContext());
             hint.setText(chinese && nineKey ? "按 2–9 输入拼音 · 长按候选查看译词" : "长按空格切换输入法");
+            hint.setTextColor(style.text);
             hint.setTextSize(12);
             hint.setPadding(style.dp(12), 0, 0, 0);
             readings.addView(hint);
         }
         if (page == 4) {
             if (candidateItems.length() == 0) { showTypingPage(); }
-            else { showCandidatePanel(); }
+            else if (candidatePanel != null) { candidatePanel.update(candidateItems); }
         }
     }
 
@@ -339,7 +382,7 @@ final class KeyboardView extends LinearLayout {
 
     private void addEnter(LinearLayout row) {
         TextView enter = add(row, enterLabel, true, actions::enter, 0.7f);
-        enter.setTextColor(KeyboardStyle.ACCENT);
+        enter.setTextColor(style.accent);
         enter.setTextSize(15);
     }
 
@@ -347,9 +390,12 @@ final class KeyboardView extends LinearLayout {
     private void addDelete(LinearLayout row) {
         TextView delete = add(row, "⌫", true, actions::delete, 0.7f);
         delete.setContentDescription("删除文字");
+        final boolean[] cancelled = {false};
+        final int slop = ViewConfiguration.get(getContext()).getScaledTouchSlop();
         delete.setOnTouchListener((view, event) -> {
             switch (event.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
+                    cancelled[0] = false;
                     cancelRepeat(); view.setPressed(true);
                     repeat = new Runnable() {
                         @Override public void run() {
@@ -358,10 +404,17 @@ final class KeyboardView extends LinearLayout {
                     };
                     handler.postDelayed(repeat, ViewConfiguration.getLongPressTimeout());
                     return true;
+                case MotionEvent.ACTION_MOVE:
+                    if (event.getX() < -slop || event.getY() < -slop
+                            || event.getX() > view.getWidth() + slop || event.getY() > view.getHeight() + slop) {
+                        cancelled[0] = true;
+                        cancelRepeat(); view.setPressed(false);
+                    }
+                    return true;
                 case MotionEvent.ACTION_UP:
                     boolean wasRepeated = repeated;
                     cancelRepeat(); view.setPressed(false);
-                    if (!wasRepeated) { view.performClick(); }
+                    if (!wasRepeated && !cancelled[0]) { view.performClick(); }
                     return true;
                 case MotionEvent.ACTION_CANCEL:
                     cancelRepeat(); view.setPressed(false); return true;
@@ -371,7 +424,7 @@ final class KeyboardView extends LinearLayout {
     }
 
     private void reset(int page) {
-        cancelRepeat(); this.page = page; body.removeAllViews();
+        cancelRepeat(); this.page = page; body.removeAllViews(); candidatePanel = null;
         expandKey.setText("▾");
         expandKey.setContentDescription("展开候选");
     }
