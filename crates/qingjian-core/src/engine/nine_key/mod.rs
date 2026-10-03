@@ -116,8 +116,8 @@ impl Engine {
                 .then_with(|| a.0.variants.count_ones().cmp(&b.0.variants.count_ones()))
                 .then_with(|| {
                     self.learner
-                        .choice_weight(&keys[..b.1], &b.0.text)
-                        .cmp(&self.learner.choice_weight(&keys[..a.1], &a.0.text))
+                        .choice_priority(&keys[..b.1], &b.0.text)
+                        .cmp(&self.learner.choice_priority(&keys[..a.1], &a.0.text))
                 })
                 .then_with(|| b.0.frequency.cmp(&a.0.frequency))
                 .then_with(|| a.0.text.cmp(&b.0.text))
@@ -147,9 +147,24 @@ impl Engine {
                 },
             );
         }
+        for candidate in self.learner.recalled_candidates(keys) {
+            if encode(&candidate.syllables.join("")) == keys
+                && candidate
+                    .syllables
+                    .iter()
+                    .zip(&self.nine_key_locked)
+                    .all(|(actual, locked)| actual == locked)
+            {
+                items.insert(0, candidate);
+            }
+        }
         let mut seen = HashSet::new();
         items
             .retain(|candidate| seen.insert((candidate.text.clone(), candidate.syllables.clone())));
+        // 同一完整输入串下明确选择过的词 / 组句优先，前缀选择不会挤掉完整输入候选。
+        items.sort_by_cached_key(|candidate| {
+            std::cmp::Reverse(self.learner.choice_priority(keys, &candidate.text))
+        });
         if let Some(first) = items.first() {
             let reading = first
                 .reading
