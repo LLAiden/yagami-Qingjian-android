@@ -40,6 +40,72 @@ pub extern "system" fn Java_io_github_utyoinog_yagamiime_NativeBridge_nativeSetF
     }
 }
 
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_io_github_utyoinog_yagamiime_NativeBridge_nativePrivacy(
+    _env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    handle: jlong,
+    private: jboolean,
+    learning: jboolean,
+) {
+    if let Some(engine) = from_handle(handle) {
+        engine.privacy(private != 0, learning != 0);
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_io_github_utyoinog_yagamiime_NativeBridge_nativeStartSession(
+    _env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    handle: jlong,
+    private: jboolean,
+    learning: jboolean,
+) {
+    if let Some(engine) = from_handle(handle) {
+        engine.engine.discard_input();
+        engine.displayed.clear();
+        engine.privacy(private != 0, learning != 0);
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_io_github_utyoinog_yagamiime_NativeBridge_nativeRestoreLearning(
+    mut env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    handle: jlong,
+    snapshot: JString<'_>,
+) -> jboolean {
+    match (from_handle(handle), path(&mut env, snapshot)) {
+        (Some(engine), Some(snapshot)) => engine.restore_learning(&snapshot) as jboolean,
+        _ => 0,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_io_github_utyoinog_yagamiime_NativeBridge_nativeLearningSnapshot(
+    mut env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    handle: jlong,
+) -> jstring {
+    let snapshot = from_handle(handle)
+        .map(|engine| engine.learning_snapshot())
+        .unwrap_or_default();
+    java_string(&mut env, &snapshot)
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_io_github_utyoinog_yagamiime_NativeBridge_nativeClearLearning(
+    _env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    handle: jlong,
+) {
+    if let Some(engine) = from_handle(handle) {
+        engine.learner.clear();
+        engine.engine.discard_input();
+        engine.displayed.clear();
+    }
+}
+
 fn path(env: &mut JNIEnv<'_>, value: JString<'_>) -> Option<String> {
     env.get_string(&value).ok().map(|value| value.into())
 }
@@ -143,14 +209,12 @@ pub extern "system" fn Java_io_github_utyoinog_yagamiime_NativeBridge_nativeComm
     _class: JClass<'_>,
     handle: jlong,
     index: jint,
+    explicit: jboolean,
 ) -> jstring {
     let Some(engine) = from_handle(handle) else {
         return java_string(&mut env, "");
     };
-    let Some(candidate) = engine.candidates().get(index.max(0) as usize).cloned() else {
-        return java_string(&mut env, "");
-    };
-    let committed = engine.engine.commit(&candidate);
+    let committed = engine.commit(index.max(0) as usize, explicit != 0);
     java_string(&mut env, &committed)
 }
 
