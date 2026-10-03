@@ -70,8 +70,7 @@ public final class KeyboardAcceptanceTest extends KeyboardTestCase {
         click("1");
         click("剪贴板");
         click("返回键盘");
-        assertNotNull("数字框返回后应保留数字键", find("1"));
-        assertNotNull("数字框返回后应保留小数点", find("."));
+        node("1"); node(".");
         click("."); click("2");
         await(() -> activity.number.getText().toString().equals("1.2"));
         click("符号");
@@ -185,7 +184,7 @@ public final class KeyboardAcceptanceTest extends KeyboardTestCase {
         });
         click("剪贴板"); click("粘贴 当前复制 123");
         await(() -> activity.number.getText().toString().equals("123"));
-        assertNotNull(find("*")); assertNotNull(find("#"));
+        node("*"); node("#");
         click("#");
         await(() -> activity.number.getText().toString().equals("123#"));
     }
