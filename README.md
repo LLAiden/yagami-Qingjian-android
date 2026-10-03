@@ -2,7 +2,7 @@
 > 基于青简开源核心开发的Android 拼音输入法，支持 Android 8.0+ 与 HarmonyOS Android 兼容环境。
 [原版正式 APK](https://github.com/Utyoin-OG/yagami-Qingjian-android/releases/latest)
 
-本 fork 的 `feat/android-nine-key-ux` 分支提供 **0.2.0 九键预览版**，预览包名称为「Yagami 输入法预览」，
+本 fork 的 `feat/android-nine-key-ux` 分支提供 **0.2.1 九键预览版**，预览包名称为「Yagami 输入法预览」，
 可与原版并存。已进行 Android 15 模拟器自测，厂商真机尚待验证；构建与验收步骤见
 [Android 说明](apps/android/README.md) 和 [自测记录](docs/notes/android-ux-validation.md)。下面原版正式包的下载与覆盖升级说明不适用于预览包。
 
@@ -14,8 +14,8 @@ Yagami 是一个面向 Android 的拼音与语言学习输入法，基于Qingjia
 ## 新增功能
 
 - 默认九键拼音、拼音消歧，可切换全拼；长按候选查看英语译词
-- 点击候选或空格上屏
-- 中文 / 英文切换与临时大写
+- 点击候选或空格上屏，候选可展开为多列列表
+- 中文 / 英文切换与临时大写，中英文选择会保存
 - `123` 九宫格数字页与常用符号页
 - 剪贴板历史、固定、删除和清空
 - 全选 / 局部选区删除、完整 emoji 退格，长按连续删除
@@ -24,7 +24,7 @@ Yagami 是一个面向 Android 的拼音与语言学习输入法，基于Qingjia
 - 长按空格切换至其他系统输入法
 - `arm64-v8a` 与 `x86_64`，Android 8.0 及以上
 
-关于鸿蒙：上游 0.1.5 曾在 HUAWEI Mate 40 Pro、HarmonyOS 4.2.0 的 Android 兼容环境中验证；本 fork 的 0.2.0 预览版尚未完成该设备验证。
+关于鸿蒙：上游 0.1.5 曾在 HUAWEI Mate 40 Pro、HarmonyOS 4.2.0 的 Android 兼容环境中验证；本 fork 的 0.2.1 预览版尚未完成该设备验证。
 
 ## 下载、安装与使用
 
