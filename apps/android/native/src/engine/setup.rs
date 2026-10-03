@@ -15,6 +15,7 @@ impl AndroidEngine {
             Glossary::from_path(Language::English, glossary).map_err(|error| error.to_string())?;
         Ok(Self {
             engine: Engine::new(dictionary).with_translator(Box::new(glossary)),
+            displayed: Vec::new(),
         })
     }
 }
