@@ -5,8 +5,10 @@ mod setup;
 #[cfg(test)]
 mod tests;
 
-use qingjian_core::Engine;
+use qingjian_core::{Candidate, Engine};
 
 pub(super) struct AndroidEngine {
     pub(super) engine: Engine,
+
+    pub(super) displayed: Vec<Candidate>,
 }
