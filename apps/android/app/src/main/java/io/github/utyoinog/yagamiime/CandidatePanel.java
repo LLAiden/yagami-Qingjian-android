@@ -17,23 +17,39 @@ import org.json.JSONObject;
 import java.util.function.Consumer;
 
 final class CandidatePanel extends LinearLayout {
+    private final KeyboardStyle style;
+    private final TextView title;
+    private final ScrollView scroll;
+    private final LinearLayout rows;
+    private final Consumer<Integer> choose;
+    private final int columns;
+
     CandidatePanel(Context context, JSONArray candidates, Consumer<Integer> choose) {
         super(context);
-        KeyboardStyle style = new KeyboardStyle(context);
+        this.choose = choose;
+        style = new KeyboardStyle(context);
         setOrientation(VERTICAL);
-        TextView title = new TextView(context);
-        title.setText("候选 · 共 " + candidates.length() + " 项 · 长按查看译词");
+        title = new TextView(context);
+        title.setTextColor(style.text);
         title.setTextSize(12);
         title.setGravity(Gravity.CENTER_VERTICAL);
         title.setPadding(style.dp(8), 0, 0, 0);
         addView(title, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, style.dp(26)));
-        ScrollView scroll = new ScrollView(context);
+        scroll = new ScrollView(context);
         scroll.setContentDescription("展开候选列表");
-        LinearLayout rows = new LinearLayout(context);
+        rows = new LinearLayout(context);
         rows.setOrientation(VERTICAL);
-        int columns = context.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE ? 5 : 3;
+        columns = context.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE ? 5 : 3;
+        scroll.addView(rows);
+        addView(scroll, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+        update(candidates);
+    }
+
+    void update(JSONArray candidates) {
+        title.setText("候选 · 共 " + candidates.length() + " 项 · 长按查看译词");
+        rows.removeAllViews();
         for (int offset = 0; offset < candidates.length(); offset += columns) {
-            LinearLayout row = new LinearLayout(context);
+            LinearLayout row = new LinearLayout(getContext());
             for (int column = 0; column < columns; column++) {
                 final int index = offset + column;
                 JSONObject candidate = candidates.optJSONObject(index);
@@ -49,7 +65,7 @@ final class CandidatePanel extends LinearLayout {
                     String gloss = candidate.optString("gloss");
                     if (!gloss.isEmpty()) {
                         key.setOnLongClickListener(ignored -> {
-                            Toast.makeText(context, text + "：" + gloss, Toast.LENGTH_LONG).show();
+                            Toast.makeText(getContext(), text + "：" + gloss, Toast.LENGTH_LONG).show();
                             return true;
                         });
                     }
@@ -60,7 +76,6 @@ final class CandidatePanel extends LinearLayout {
             }
             rows.addView(row);
         }
-        scroll.addView(rows);
-        addView(scroll, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+        scroll.post(() -> scroll.scrollTo(0, 0));
     }
 }
