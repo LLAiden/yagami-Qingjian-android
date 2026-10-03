@@ -86,12 +86,11 @@ final class KeyboardView extends LinearLayout {
             else if (candidateItems.length() > 0) { showCandidatePanel(); }
         });
         addView(strip, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        LinearLayout clipboardBar = menu("剪贴板栏");
-        clipboardKey = toolbar(clipboardBar, "剪贴板", KeyIcon.CLIPBOARD, actions::clipboard);
-        LinearLayout editingBar = menu("编辑菜单");
-        toolbar(editingBar, "编辑", KeyIcon.EDIT, this::showEditing);
-        toolbar(editingBar, "全选", KeyIcon.SELECT, actions::selectAll);
-        toolbar(editingBar, "收起键盘", KeyIcon.HIDE, actions::hide);
+        LinearLayout toolbar = menu("工具栏");
+        clipboardKey = toolbar(toolbar, "剪贴板", KeyIcon.CLIPBOARD, actions::clipboard);
+        toolbar(toolbar, "编辑", KeyIcon.EDIT, this::showEditing);
+        toolbar(toolbar, "全选", KeyIcon.SELECT, actions::selectAll);
+        toolbar(toolbar, "收起键盘", KeyIcon.HIDE, actions::hide);
         body = new LinearLayout(context);
         body.setOrientation(VERTICAL);
         body.setContentDescription("按键区域");
@@ -101,7 +100,7 @@ final class KeyboardView extends LinearLayout {
 
     @Override protected void onMeasure(int width, int height) {
         // 固定窗口尺寸，透明顶部用 insets 归还宿主；候选显隐不会改变触摸坐标。
-        int fixed = style.dp(style.toolbarHeight() * 2 + style.candidateHeight() + style.readingHeight() + rowHeight * 4)
+        int fixed = style.dp(style.toolbarHeight() + style.candidateHeight() + style.readingHeight() + rowHeight * 4)
                 + getPaddingTop() + getPaddingBottom();
         super.onMeasure(width, MeasureSpec.makeMeasureSpec(fixed, MeasureSpec.EXACTLY));
     }
