@@ -103,8 +103,13 @@ public final class KeyboardLayoutTest extends KeyboardTestCase {
         assertTrue(Math.abs(space.width() - bounds("拼音键 5 JKL").width()) <= 1);
         assertTrue(Math.abs(numbers.width() - space.width()) <= 1);
         assertTrue(Math.abs(english.width() - space.width()) <= 1);
-        click("切换数字模式"); click("1"); click("拼音");
+        click("切换数字模式");
+        Rect pinyin = bounds("切换拼音模式"), zero = bounds("0"), numericEnglish = bounds("切换英语模式");
+        assertEquals(numericEnglish.right, zero.left); assertEquals(zero.right, pinyin.left);
+        assertTrue(Math.abs(zero.centerX() - bounds("输入键盘").centerX()) <= 3);
+        assertTrue(bounds("空格").right <= numericEnglish.left);
+        click("1"); click("0"); click("切换英语模式"); click("a"); click("123"); click("切换拼音模式");
         click("空格"); click("切换英语模式"); click("h"); click("i");
-        await(() -> activity.message.getText().toString().equals("1 hi"));
+        await(() -> activity.message.getText().toString().equals("10a hi"));
     }
 }
