@@ -9,13 +9,24 @@ pub(crate) struct Snapshot {
     preedit: String,
 
     candidates: Vec<SnapshotCandidate>,
+
+    raw: String,
+
+    readings: Vec<String>,
 }
 
 impl Snapshot {
-    pub(crate) fn new(preedit: String, candidates: Vec<SnapshotCandidate>) -> Self {
+    pub(crate) fn new(
+        preedit: String,
+        candidates: Vec<SnapshotCandidate>,
+        raw: String,
+        readings: Vec<String>,
+    ) -> Self {
         Self {
             preedit,
             candidates,
+            raw,
+            readings,
         }
     }
 }
