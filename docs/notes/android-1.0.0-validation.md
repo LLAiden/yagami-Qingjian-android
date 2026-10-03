@@ -1,6 +1,6 @@
 # Yagami Android 1.0.0 验收记录
 
-日期：2026-10-03。versionName 1.0.0，versionCode 15。保留用户确认的三模式、固定顶栏、左侧拼音组合、工具排序和底行位置。
+日期：2026-10-03。versionName 1.0.0，versionCode 16。保留用户确认的三模式、固定顶栏、左侧拼音组合、工具排序和底行位置。
 
 ## 数据与学习边界
 
@@ -35,6 +35,7 @@ Android 关于 [Keystore](https://developer.android.com/privacy-and-security/key
 保留既有三模式布局、Shift、固定高度、图标与间距、快速 / 双指 / 重启输入、选区与 emoji 删除、回车动作、剪贴板、鼻音、横屏和导航安全区回归。
 专项 15 项通过（83.483 秒）。首次完整 77 项中 76 项通过，1 项在 setUp 等待旧 / 新宿主窗口交叉时超时；未进入该测试操作，无近期进程崩溃。
 测试关闭宿主后补充等待主线程空闲，完整重跑 77 项全部通过（294.756 秒）。生产代码未为此启动时序修改。
+77 项在 versionCode 15 完成。末次截图检查发现英语底行“中文”因宽度换成两行，调整为与 `123` 同字号的单行居中文字；最终 versionCode 16 重新构建并以正式包截图检查，按键布局和事件逻辑未变。
 
 ## 性能与正式包
 
@@ -45,7 +46,7 @@ Android 关于 [Keystore](https://developer.android.com/privacy-and-security/key
 双 ABI 包含 Core JNI 与 MMKV；四个 ELF 的 LOAD 段均为 0x4000 对齐，APK zipalign 16KB 检查通过。
 正式证书 SHA-256：`4c201691fa0aa48bd94015631541bd54499b7e14e67511590753eecf831589d3`。
 APK v2 / v3 校验通过。Android 9+ 使用正式证书，Android 8 为旧预览证书兼容签名；最低版本仅做签名验证，未运行实机回归。
-模拟器从 Debug 安装覆盖升级正式包成功，版本 1.0.0 / 15，应用标志无 DEBUGGABLE；`run-as` 被系统拒绝。
+模拟器先从 Debug 15 覆盖升级 Release 15，再升级最终 Release 16，两次成功；应用标志无 DEBUGGABLE，`run-as` 被系统拒绝。
 升级前写入合成选词“米”、固定历史“升级保留验收”和深色 / 高度设置；正式包在系统 Settings 搜索输入框使用 `64` 后“米”仍为首选，并可上屏。
 剪贴板仍显示该固定条目与“取消固定”，加密保存可用；深色与高度保持。候选出现时工具原位替换，键盘边界与按键位置保持一致，截图随包保存。
 调试输入 Activity 的显式启动返回“Activity does not exist”；正式包保留启用向导和输入法服务。
