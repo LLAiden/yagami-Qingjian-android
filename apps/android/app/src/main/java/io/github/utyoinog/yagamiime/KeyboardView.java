@@ -40,6 +40,8 @@ final class KeyboardView extends LinearLayout {
     private final Actions actions;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final LinearLayout candidates;
+    private final HorizontalScrollView candidateScroll;
+    private final TextView expandKey;
     private final LinearLayout readings;
     private final HorizontalScrollView readingScroll;
     private final LinearLayout body;
@@ -52,6 +54,13 @@ final class KeyboardView extends LinearLayout {
     private boolean nineKey = true;
     private boolean shifted;
     private int page;
+    private int typingPage;
+    private boolean phoneNumbers;
+    private boolean signedNumbers;
+    private boolean decimalNumbers;
+    private JSONArray candidateItems = new JSONArray();
+    private String candidateContents = "";
+    private String readingContents = "";
     private String enterLabel = "换行";
 
     KeyboardView(Context context, Actions actions) {
@@ -69,11 +78,21 @@ final class KeyboardView extends LinearLayout {
         TextView hide = add(toolbar, "⌄", true, actions::hide, 0.8f);
         hide.setContentDescription("收起键盘");
         addView(toolbar, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, style.dp(40)));
-        HorizontalScrollView candidateScroll = new HorizontalScrollView(context);
+        LinearLayout candidateBar = row();
+        candidateScroll = new HorizontalScrollView(context);
+        candidateScroll.setContentDescription("候选列表");
         candidateScroll.setHorizontalScrollBarEnabled(false);
         candidates = row();
         candidateScroll.addView(candidates);
-        addView(candidateScroll, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, style.dp(48)));
+        candidateBar.addView(candidateScroll, new LayoutParams(0, style.dp(48), 1));
+        expandKey = style.key("▾", true, () -> {
+            if (page == 4) { showTypingPage(); }
+            else if (candidateItems.length() > 0) { showCandidatePanel(); }
+        });
+        expandKey.setContentDescription("展开候选");
+        expandKey.setVisibility(INVISIBLE);
+        candidateBar.addView(expandKey, new LayoutParams(style.dp(44), style.dp(44)));
+        addView(candidateBar, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, style.dp(48)));
         readingScroll = new HorizontalScrollView(context);
         readingScroll.setHorizontalScrollBarEnabled(false);
         readings = row();
@@ -87,6 +106,8 @@ final class KeyboardView extends LinearLayout {
 
     void configure(boolean chinese, boolean nineKey, String enterLabel, boolean privateEditor) {
         this.chinese = chinese; this.nineKey = nineKey; this.enterLabel = enterLabel;
+        shifted = false;
+        phoneNumbers = false; signedNumbers = false; decimalNumbers = false;
         schemeKey.setText(nineKey ? "九键" : "全拼");
         schemeKey.setContentDescription(nineKey ? "九键" : "全拼");
         schemeKey.setVisibility(chinese ? VISIBLE : INVISIBLE);
@@ -96,12 +117,15 @@ final class KeyboardView extends LinearLayout {
     }
 
     void showLetters() {
+        typingPage = 0;
         reset(0);
         if (chinese && nineKey) { nineLetters(); }
         else { alphabet(); }
     }
 
     void showNumbers(boolean phone, boolean signed, boolean decimal) {
+        typingPage = 1;
+        phoneNumbers = phone; signedNumbers = signed; decimalNumbers = decimal;
         reset(1);
         for (int rowIndex = 0; rowIndex < 3; rowIndex++) {
             LinearLayout row = row();
@@ -130,6 +154,13 @@ final class KeyboardView extends LinearLayout {
         addRow(bottom);
     }
 
+    private void showNumbers() { showNumbers(phoneNumbers, signedNumbers, decimalNumbers); }
+
+    private void showTypingPage() {
+        if (typingPage == 1) { showNumbers(); }
+        else { showLetters(); }
+    }
+
     void showSymbols() { symbols(0); }
 
     private void symbols(int set) {
@@ -154,10 +185,22 @@ final class KeyboardView extends LinearLayout {
     void showClipboard(ClipboardStore store, boolean privateEditor) {
         reset(3);
         body.addView(new ClipboardPanel(getContext(), store, privateEditor, text -> {
-            actions.text(text); showLetters();
+            actions.text(text); showTypingPage();
         }), new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
-        TextView back = style.key("返回键盘", true, this::showLetters);
+        TextView back = style.key("返回键盘", true, this::showTypingPage);
         body.addView(back, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, style.dp(36)));
+    }
+
+    private void showCandidatePanel() {
+        reset(4);
+        expandKey.setText("▴");
+        expandKey.setContentDescription("收回候选");
+        body.addView(new CandidatePanel(getContext(), candidateItems, actions::choose),
+                new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+        LinearLayout footer = row();
+        add(footer, "返回键盘", true, this::showTypingPage, 3);
+        addDelete(footer);
+        body.addView(footer, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, style.dp(40)));
     }
 
     int page() { return page; }
@@ -165,6 +208,13 @@ final class KeyboardView extends LinearLayout {
     void snapshot(JSONObject snapshot) {
         candidates.removeAllViews();
         JSONArray items = snapshot.optJSONArray("candidates");
+        candidateItems = items == null ? new JSONArray() : items;
+        String contents = candidateItems.toString();
+        if (!contents.equals(candidateContents)) {
+            candidateContents = contents;
+            candidateScroll.post(() -> candidateScroll.scrollTo(0, 0));
+        }
+        expandKey.setVisibility(candidateItems.length() > 0 ? VISIBLE : INVISIBLE);
         if (items == null || items.length() == 0) {
             TextView hint = new TextView(getContext());
             hint.setText(snapshot.optString("raw").isEmpty() ? (chinese ? (nineKey ? "九键拼音 · 点击候选上屏" : "全拼 · 点击候选上屏") : "English") : snapshot.optString("raw"));
@@ -195,6 +245,11 @@ final class KeyboardView extends LinearLayout {
         }
         readings.removeAllViews();
         JSONArray options = snapshot.optJSONArray("readings");
+        String optionContents = options == null ? "" : options.toString();
+        if (!optionContents.equals(readingContents)) {
+            readingContents = optionContents;
+            readingScroll.post(() -> readingScroll.scrollTo(0, 0));
+        }
         boolean visible = chinese && nineKey && options != null && options.length() > 0;
         // 输入中保持窗口高度不变，避免系统重布局时按键位置跳动。
         readingScroll.setVisibility(VISIBLE);
@@ -216,6 +271,10 @@ final class KeyboardView extends LinearLayout {
             hint.setTextSize(12);
             hint.setPadding(style.dp(12), 0, 0, 0);
             readings.addView(hint);
+        }
+        if (page == 4) {
+            if (candidateItems.length() == 0) { showTypingPage(); }
+            else { showCandidatePanel(); }
         }
     }
 
@@ -240,7 +299,7 @@ final class KeyboardView extends LinearLayout {
                 }
             }
             if (r == 0) { addDelete(row); }
-            else if (r == 1) { add(row, "123", true, () -> showNumbers(false, false, false), 0.7f); }
+            else if (r == 1) { add(row, "123", true, this::showNumbers, 0.7f); }
             else { addEnter(row); }
             addRow(row);
         }
@@ -266,8 +325,10 @@ final class KeyboardView extends LinearLayout {
 
     private void bottom() {
         LinearLayout row = row();
-        add(row, chinese ? "EN" : "中文", true, actions::mode, 1.1f);
-        add(row, "123", true, () -> showNumbers(false, false, false), 1);
+        if (page == 2) {
+            add(row, typingPage == 1 ? "返回数字" : chinese ? "拼音" : "ABC", true, this::showTypingPage, 1.1f);
+        } else { add(row, chinese ? "EN" : "中文", true, actions::mode, 1.1f); }
+        add(row, "123", true, this::showNumbers, 1);
         add(row, chinese ? "，" : ",", true, () -> actions.text(chinese ? "，" : ","), 0.8f);
         TextView space = add(row, "空格", false, actions::space, 2.5f);
         space.setOnLongClickListener(ignored -> { actions.nextIme(); return true; });
@@ -311,6 +372,8 @@ final class KeyboardView extends LinearLayout {
 
     private void reset(int page) {
         cancelRepeat(); this.page = page; body.removeAllViews();
+        expandKey.setText("▾");
+        expandKey.setContentDescription("展开候选");
     }
 
     private LinearLayout row() {
