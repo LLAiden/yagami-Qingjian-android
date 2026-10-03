@@ -49,6 +49,13 @@ YAGAMI_KEY_PASSWORD        签名密钥密码
 0.2.2 完成十轮自查，增加编辑工具、三档高度和深浅主题；修复长按滑出误删、展开候选长按中断、复制时间续期、私密历史重建、输入框动作和重启丢候选。
 版本号为 0.2.2 / versionCode 9，可以覆盖升级同签名的 0.2.1 预览包。
 
+0.2.3 更新键盘与启用向导的深浅配色、功能图标和触摸反馈；候选下方直接显示英语释义，长按查看释义提示。
+拼音选项独立分隔，九宫格左右对称且数字居中，全拼删除键加宽。动作键统一在最右下角。
+三组鼻音可独立开启，九键和全拼均生效；设置与剪贴板首次使用自动迁移到 MMKV 2.4.2。
+修复按键间隙、输入框重启时漏数字及分段上屏后候选丢失；候选按需构建并复用未变化视图。
+版本号为 0.2.3 / versionCode 10，可覆盖升级同签名的 0.2.2 预览包。
+界面验收见 `docs/notes/android-visual-validation.md`；后续需求与验收标准见 `docs/plan/android-product-optimization.md`。
+
 ## 自测
 
 安装已启动的 API 30+ 测试设备；验收会切换测试设备的导航模式和当前输入法。
@@ -65,7 +72,7 @@ adb shell am instrument -w io.github.utyoinog.yagamiime.preview.test/android.tes
 
 交互验收在真实系统 IME 窗口注入触摸事件，覆盖九键候选与消歧、数字布局、全拼/英文、选区与 emoji 删除、长按删除、
 剪贴板去重与删除、密码框、展开候选、中英文记忆、数字页恢复、各面板及系统收起、快速输入、回车动作、导航模式及横屏。测试环境和结果见
-`docs/notes/android-ten-round-audit.md`（0.2.2）与 `docs/notes/android-ux-validation.md`（0.2.1）；模拟器验证与厂商真机验证分别记录。
+`docs/notes/android-visual-validation.md`（0.2.3）、`docs/notes/android-ten-round-audit.md`（0.2.2）与 `docs/notes/android-ux-validation.md`（0.2.1）；模拟器验证与厂商真机验证分别记录。
 
 ## 许可证与来源
 
