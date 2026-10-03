@@ -35,7 +35,6 @@ public final class YagamiInputMethodService extends InputMethodService implement
     private ClipboardStore clipboard;
     private final ClipboardManager.OnPrimaryClipChangedListener clipListener = this::captureClipboard;
     private boolean chinese = true;
-    private boolean nineKey = true;
     private boolean privateEditor;
     private boolean selected;
     private boolean composing;
@@ -52,7 +51,6 @@ public final class YagamiInputMethodService extends InputMethodService implement
 
     @Override public void onCreate() {
         super.onCreate();
-        nineKey = LocalStorage.open(this, "keyboard").getBoolean("nine_key", true);
         clipboard = new ClipboardStore(this);
         clipboard.manager().addPrimaryClipChangedListener(clipListener);
         engineQueue.execute(() -> {
@@ -73,6 +71,18 @@ public final class YagamiInputMethodService extends InputMethodService implement
     }
 
     @Override public boolean onEvaluateFullscreenMode() { return false; }
+
+    @Override public void onComputeInsets(Insets insets) {
+        super.onComputeInsets(insets);
+        if (keyboard == null || !keyboard.isShown()) { return; }
+        int[] location = new int[2];
+        keyboard.getLocationInWindow(location);
+        int top = location[1] + keyboard.visibleTop();
+        insets.contentTopInsets = top;
+        insets.visibleTopInsets = top;
+        insets.touchableInsets = Insets.TOUCHABLE_INSETS_REGION;
+        insets.touchableRegion.set(location[0], top, location[0] + keyboard.getWidth(), location[1] + keyboard.getHeight());
+    }
 
     @Override public void onStartInput(EditorInfo info, boolean restarting) {
         super.onStartInput(info, restarting);
@@ -108,7 +118,7 @@ public final class YagamiInputMethodService extends InputMethodService implement
                 && !privateEditor && variation != InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
                 && variation != InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS
                 && variation != InputType.TYPE_TEXT_VARIATION_URI;
-        final boolean target = chinese && nineKey;
+        final boolean target = chinese;
         final int fuzzy = new KeyboardPreferences(this).nasal;
         enqueue(engine -> { engine.clear(); engine.setNineKey(target); engine.setFuzzy(fuzzy); return null; });
     }
@@ -288,17 +298,20 @@ public final class YagamiInputMethodService extends InputMethodService implement
     @Override public void mode() {
         chinese = !chinese;
         LocalStorage.open(this, "keyboard").edit().putBoolean("chinese", chinese).apply();
-        boolean target = chinese && nineKey;
+        boolean target = chinese;
         enqueue(engine -> { String text = finish(engine); engine.setNineKey(target); return text.isEmpty() ? null : text; });
         configure();
     }
 
-    @Override public void scheme() {
-        nineKey = !nineKey;
-        LocalStorage.open(this, "keyboard").edit().putBoolean("nine_key", nineKey).apply();
-        boolean target = chinese && nineKey;
-        enqueue(engine -> { String text = finish(engine); engine.setNineKey(target); return text.isEmpty() ? null : text; });
-        configure();
+    @Override public void numbers() {
+        enqueue(engine -> finish(engine));
+        EditorInfo info = getCurrentInputEditorInfo();
+        int type = info == null ? 0 : info.inputType;
+        if (keyboard != null) {
+            keyboard.showNumbers((type & android.text.InputType.TYPE_MASK_CLASS) == android.text.InputType.TYPE_CLASS_PHONE,
+                    (type & android.text.InputType.TYPE_NUMBER_FLAG_SIGNED) != 0,
+                    (type & android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL) != 0);
+        }
     }
 
     @Override public void choose(int index) {
@@ -430,7 +443,7 @@ public final class YagamiInputMethodService extends InputMethodService implement
         if (keyboard == null) { return; }
         if (keyboard.preferencesChanged()) { replaceKeyboard(false); return; }
         EditorInfo info = getCurrentInputEditorInfo();
-        keyboard.configure(chinese, nineKey, enterLabel(info), privateEditor, info == null ? 0 : info.inputType);
+        keyboard.configure(chinese, enterLabel(info), privateEditor, info == null ? 0 : info.inputType);
     }
 
     private void replaceKeyboard(boolean settings) {
@@ -453,6 +466,7 @@ public final class YagamiInputMethodService extends InputMethodService implement
         KeyboardStyle style = new KeyboardStyle(this);
         Window window = getWindow().getWindow();
         if (window != null) {
+            window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
             window.setNavigationBarColor(style.background);
             window.getDecorView().setSystemUiVisibility(style.dark ? 0 : View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
             if (Build.VERSION.SDK_INT >= 29) { window.setNavigationBarContrastEnforced(false); }
