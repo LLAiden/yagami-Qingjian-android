@@ -53,6 +53,15 @@ final class KeyIconDrawable extends Drawable {
                 path(canvas, 20, 5, 20, 13, 5, 13); path(canvas, 10, 8, 5, 13, 10, 18); break;
             case SHIFT:
                 path(canvas, 4, 11, 12, 3, 20, 11, 16, 11, 16, 20, 8, 20, 8, 11, 4, 11); break;
+            case CAPS_LOCK:
+                path(canvas, 4, 10, 12, 2, 20, 10, 16, 10, 16, 17, 8, 17, 8, 10, 4, 10);
+                line(canvas, 8, 22, 16, 22); break;
+            case PASSWORD:
+                canvas.drawCircle(7, 9, 5, paint);
+                path(canvas, 11, 12, 20, 21, 23, 18, 20, 15, 18, 17, 15, 14); break;
+            case AUTHENTICATOR:
+                path(canvas, 12, 2, 21, 6, 20, 14, 17, 19, 12, 22, 7, 19, 4, 14, 3, 6, 12, 2);
+                canvas.drawCircle(12, 11, 4, paint); path(canvas, 12, 8, 12, 11, 14, 12); break;
             case GLOBE:
                 canvas.drawCircle(12, 12, 9, paint);
                 canvas.drawOval(8, 3, 16, 21, paint); line(canvas, 3, 12, 21, 12); break;
