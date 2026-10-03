@@ -37,7 +37,12 @@ public abstract class KeyboardTestCase extends InstrumentationTestCase {
         Intent intent = new Intent(getInstrumentation().getTargetContext(), InputTestActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         activity = (InputTestActivity) getInstrumentation().startActivitySync(intent);
-        showMessage();
+        try { showMessage(); }
+        catch (Exception | AssertionError error) {
+            // JUnit 3 在 setUp 失败时不调用 tearDown，残留 Activity 会让后续启动等待不结束。
+            getInstrumentation().runOnMainSync(() -> activity.finish());
+            throw error;
+        }
     }
 
     @Override protected void tearDown() throws Exception {
@@ -51,6 +56,7 @@ public abstract class KeyboardTestCase extends InstrumentationTestCase {
         Rect key = new Rect();
         long until = SystemClock.uptimeMillis() + 10000;
         do {
+            if (android.os.Build.VERSION.SDK_INT >= 33) { getInstrumentation().getUiAutomation().clearCache(); }
             getInstrumentation().runOnMainSync(() -> {
                 activity = InputTestActivity.current;
                 android.view.WindowInsets insets = activity.getWindow().getDecorView().getRootWindowInsets();
@@ -86,31 +92,35 @@ public abstract class KeyboardTestCase extends InstrumentationTestCase {
             ((InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE)).showSoftInput(activity.message, InputMethodManager.SHOW_IMPLICIT);
         });
         long until = SystemClock.uptimeMillis() + 10000;
-        while (find("收起键盘") == null && SystemClock.uptimeMillis() < until) {
-            getInstrumentation().runOnMainSync(() -> {
-                // 导航模式切换可能在窗口等待期间重建 Activity，不能继续请求旧输入框。
-                if (InputTestActivity.current != null) { activity = InputTestActivity.current; }
-                activity.message.requestFocus();
-                ((InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE))
-                        .showSoftInput(activity.message, InputMethodManager.SHOW_IMPLICIT);
-            });
-            SystemClock.sleep(100);
-        }
-        assertNotNull("软键盘未显示", find("收起键盘"));
+        long lastRequest = SystemClock.uptimeMillis();
         Rect previous = new Rect();
         int stable = 0;
-        long settleUntil = SystemClock.uptimeMillis() + 3000;
-        while (stable < 3 && SystemClock.uptimeMillis() < settleUntil) {
+        while (stable < 3 && SystemClock.uptimeMillis() < until) {
+            // 导航模式切换会重建窗口，旧辅助功能节点不能作为显示或安全区依据。
+            if (android.os.Build.VERSION.SDK_INT >= 33) { getInstrumentation().getUiAutomation().clearCache(); }
             AccessibilityNodeInfo hide = find("收起键盘");
             Rect current = new Rect();
             if (hide != null) { hide.getBoundsInScreen(current); }
             stable = !current.isEmpty() && current.equals(previous) ? stable + 1 : 0;
             previous = current;
+            // 给导航切换后的窗口动画时间；频繁 showSoftInput 会重复取消正在进行的显示。
+            if (hide == null && SystemClock.uptimeMillis() - lastRequest >= 1000) {
+                getInstrumentation().runOnMainSync(() -> {
+                    if (InputTestActivity.current != null) { activity = InputTestActivity.current; }
+                    activity.message.requestFocus();
+                    ((InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE))
+                            .showSoftInput(activity.message, InputMethodManager.SHOW_IMPLICIT);
+                });
+                lastRequest = SystemClock.uptimeMillis();
+            }
             SystemClock.sleep(50);
         }
+        assertTrue("软键盘未显示或窗口未稳定", stable >= 3);
     }
 
     protected void typeDigits(String text) throws Exception {
+        Rect[] positions = new Rect[text.length()];
+        int index = 0;
         for (char digit : text.toCharArray()) {
             AccessibilityNodeInfo key = null;
             long until = SystemClock.uptimeMillis() + 10000;
@@ -122,8 +132,10 @@ public abstract class KeyboardTestCase extends InstrumentationTestCase {
                 if (key == null) { SystemClock.sleep(50); }
             }
             assertNotNull("找不到九键 " + digit, key);
-            tap(key);
+            positions[index] = new Rect(); key.getBoundsInScreen(positions[index++]);
         }
+        // 模拟手指在固定按键位置连续点击，避免候选布局期间读到过期辅助功能坐标。
+        for (Rect position : positions) { tap(position, 100); }
         SystemClock.sleep(250);
     }
 
@@ -178,6 +190,10 @@ public abstract class KeyboardTestCase extends InstrumentationTestCase {
 
     protected void tap(AccessibilityNodeInfo node, long delay) {
         Rect bounds = new Rect(); node.getBoundsInScreen(bounds);
+        tap(bounds, delay);
+    }
+
+    protected void tap(Rect bounds, long delay) {
         long time = SystemClock.uptimeMillis();
         MotionEvent down = MotionEvent.obtain(time, time, MotionEvent.ACTION_DOWN, bounds.centerX(), bounds.centerY(), 0);
         MotionEvent up = MotionEvent.obtain(time, time + 40, MotionEvent.ACTION_UP, bounds.centerX(), bounds.centerY(), 0);
