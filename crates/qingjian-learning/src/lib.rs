@@ -4,12 +4,14 @@
 //! [`InputLog`] 逐条记上屏（jsonl），给离线回归评测与个人模型用；[`UsageStats`] 按天数打了多少字（`usage.tsv`），
 //! [`VocabularyBook`] 记学习语言的译词看过 / 上屏过几次（`user-vocab.tsv`，候选里标生词的依据）。
 
+mod choice_learner;
 mod error;
 mod frequency_learner;
 mod input_log;
 mod usage_stats;
 mod vocabulary_book;
 
+pub use choice_learner::ChoiceLearner;
 pub use error::LearningError;
 pub use frequency_learner::FrequencyLearner;
 pub use input_log::InputLog;
