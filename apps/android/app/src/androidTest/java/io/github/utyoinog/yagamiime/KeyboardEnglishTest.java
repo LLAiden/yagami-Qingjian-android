@@ -20,6 +20,8 @@ public final class KeyboardEnglishTest extends KeyboardTestCase {
         Rect keyboard = bounds("输入键盘"), space = bounds("空格");
         assertTrue("英语空格必须居中", Math.abs(space.centerX() - keyboard.centerX()) <= 3);
         assertEquals(bounds("123").centerY(), space.centerY());
+        assertEquals("数字切换紧邻空格左侧", bounds("123").right, space.left);
+        assertEquals("拼音切换紧邻空格右侧", space.right, bounds("中文").left);
         click("⇧"); click("⇧ ON"); click("123"); click("1"); click("ABC");
         click("A"); click("符号"); click("?"); click("ABC"); click("B");
         await(() -> activity.message.getText().toString().equals("1A?B"));
