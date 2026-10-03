@@ -38,6 +38,14 @@ final class NativeBridge implements AutoCloseable {
         return nativeSnapshot(handle);
     }
 
+    void setNineKey(boolean enabled) {
+        nativeSetNineKey(handle, enabled);
+    }
+
+    void lockReading(String reading) {
+        nativeLockReading(handle, reading);
+    }
+
     @Override
     public void close() {
         if (handle != 0) {
@@ -54,4 +62,6 @@ final class NativeBridge implements AutoCloseable {
     private static native String nativeCommit(long handle, int index);
     private static native String nativeTakeRaw(long handle);
     private static native String nativeSnapshot(long handle);
+    private static native void nativeSetNineKey(long handle, boolean enabled);
+    private static native void nativeLockReading(long handle, String reading);
 }
