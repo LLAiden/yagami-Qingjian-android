@@ -224,7 +224,10 @@ final class KeyboardView extends LinearLayout {
     private void showCandidatePanel() {
         reset(4);
         strip.expanded(true);
-        candidatePanel = new CandidatePanel(getContext(), candidateItems, actions::choose);
+        candidatePanel = new CandidatePanel(getContext(), candidateItems, index -> {
+            actions.choose(index);
+            showTypingPage();
+        });
         body.addView(candidatePanel,
                 new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
         LinearLayout footer = row();
