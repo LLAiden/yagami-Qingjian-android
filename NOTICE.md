@@ -20,7 +20,12 @@ LLAiden 的 0.2.0 预览改造基于 Utyoin-OG/yagami-Qingjian-android 提交
 
 0.2.2 在同一分支完成十轮自查，增加编辑工具、高度与主题设置，修复长按删除、剪贴板生命周期、输入动作与输入重启问题，并增加真实 IME 交互回归。
 
+0.2.3 重新设计 Android 键盘样式、功能图标和启用向导；直接展示候选英语释义、分隔拼音选项、加宽全拼删除键并居中九宫格，增加对应交互验收与产品需求文档；修复快速输入与分段提交，优化候选刷新，并接入 MMKV 和 Core 九键鼻音模糊。
+
 随 APK 分发的词库和译词表具有各自的来源与许可。再分发时必须保留 `assets/lexicon`、
 `assets/glossary` 中的来源、版权和许可证说明。
 
 Yagami 输入法与 qingjian-team 不存在隶属、授权或官方发布关系，不使用青简官方 Logo。
+
+Android 使用腾讯 [MMKV 2.4.2](https://github.com/Tencent/MMKV/tree/v2.4.2)，许可为 BSD-3-Clause，版权归腾讯及对应贡献者。
+其完整许可随 APK 打包在 `assets/licenses/mmkv.txt`，源码副本见 [许可文件](apps/android/app/src/main/assets/licenses/mmkv.txt)。
