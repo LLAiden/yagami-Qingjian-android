@@ -3,7 +3,7 @@
     <string name="app_name">Yagami 输入法</string>
     <string name="ime_subtype_name">Yagami 拼音</string>
     <string name="setup_title">Yagami 输入法</string>
-    <string name="setup_body">基于青简开源核心开发的非官方 Android 输入法。\n\n1. 在系统设置中启用输入法\n2. 返回这里选择 Yagami\n3. 九键输入 64426，点击“你好”\n\n顶栏可切换九键 / 全拼、打开剪贴板、全选或收起键盘。长按空格可以切换其他输入法。</string>
+    <string name="setup_body">基于青简开源核心开发的非官方 Android 输入法。\n\n1. 在系统设置中启用输入法\n2. 返回这里选择 Yagami\n3. 九键输入 64426，点击“你好”\n\n中文候选下方显示英语释义，长按可查看完整内容。\n\n顶栏可切换九键 / 全拼、打开剪贴板与编辑工具。编辑 → 设置可调整高度和主题。长按空格可以切换其他输入法。</string>
     <string name="enable_ime">启用输入法</string>
     <string name="select_ime">选择 Yagami 输入法</string>
     <string name="startup_failed">Yagami 启动失败：%1$s</string>
