@@ -40,8 +40,7 @@ final class KeyboardStyle {
     int dp(int value) { return Math.round(value * context.getResources().getDisplayMetrics().density); }
     float sp(int value) { return value * context.getResources().getDisplayMetrics().scaledDensity; }
     int toolbarHeight() { return landscape ? 40 : 48; }
-    int candidateHeight() { return landscape ? 48 : 60; }
-    int readingHeight() { return landscape ? 32 : 48; }
+    int candidateHeight() { return landscape ? 48 : 56; }
 
     TextView key(String label, boolean special, Runnable action) {
         TextView view = new IconKey(context);
@@ -94,7 +93,9 @@ final class KeyboardStyle {
 
     void primary(TextView view) {
         view.setTextColor(dark ? Color.rgb(22, 34, 60) : Color.WHITE);
-        view.setBackground(states(accent, false));
+        android.graphics.drawable.Drawable normal = states(accent, false);
+        view.setBackground(view.getBackground() instanceof android.graphics.drawable.InsetDrawable
+                ? new android.graphics.drawable.InsetDrawable(normal, dp(2)) : normal);
     }
 
     StateListDrawable background(boolean function) { return states(function ? special : key, true); }
