@@ -30,9 +30,9 @@ public final class KeyboardVisualTest extends KeyboardTestCase {
 
     public void testEditorActionStaysAtBottomRightAcrossLayouts() throws Exception {
         assertBottomRight();
-        click("123"); assertBottomRight();
+        click(find("切换数字模式") != null ? "切换数字模式" : "123"); assertBottomRight();
         click("符号"); assertBottomRight();
-        click("返回数字"); click("拼音"); click("EN"); assertBottomRight();
+        click("返回数字"); click(find("切换拼音模式") != null ? "切换拼音模式" : "拼音"); click("切换英语模式"); assertBottomRight();
     }
 
     private void assertBottomRight() throws Exception {
@@ -57,13 +57,14 @@ public final class KeyboardVisualTest extends KeyboardTestCase {
         typeDigits("64");
         Rect mi = bounds("选择拼音 mi"), ni = bounds("选择拼音 ni");
         int gap = Math.round(4 * activity.getResources().getDisplayMetrics().density);
-        assertTrue("拼音选项之间需要可见间距", ni.left - mi.right >= gap);
+        assertTrue("拼音选项之间需要可见间距", ni.top - mi.bottom >= gap);
+        assertTrue("拼音消歧位于九键左侧", ni.right <= bounds("拼音键 2 ABC").left);
         click("选择拼音 ni"); click("候选 你");
         await(() -> activity.message.getText().toString().equals("你"));
     }
 
     public void testFullKeyboardDeleteHasUsableTouchArea() throws Exception {
-        click("EN");
+        click("切换英语模式");
         Rect delete = bounds("删除文字"), letter = bounds("m");
         int minimum = Math.round(48 * activity.getResources().getDisplayMetrics().density);
         assertTrue("删除键不能小于 48dp", delete.width() >= minimum && delete.height() >= minimum);
@@ -78,7 +79,7 @@ public final class KeyboardVisualTest extends KeyboardTestCase {
         assertTrue(node("拼音键 1 符号").getText().toString().startsWith("1"));
         assertEquals(five.centerX(), bounds("拼音键 2 ABC").centerX());
         assertEquals(five.centerX(), bounds("拼音键 8 TUV").centerX());
-        click("123");
+        click(find("切换数字模式") != null ? "切换数字模式" : "123");
         assertTrue("数字九宫格也需要居中", Math.abs(bounds("输入键盘").centerX() - bounds("5").centerX()) <= 3);
         click("1"); click("5"); click("9"); click("0");
         await(() -> activity.message.getText().toString().equals("1590"));
