@@ -112,4 +112,17 @@ public final class KeyboardLayoutTest extends KeyboardTestCase {
         click("空格"); click("切换英语模式"); click("h"); click("i");
         await(() -> activity.message.getText().toString().equals("10a hi"));
     }
+
+    public void testNumericEditorAllowsExplicitLanguageButtons() throws Exception {
+        getInstrumentation().runOnMainSync(() -> {
+            activity.number.requestFocus();
+            ((android.view.inputmethod.InputMethodManager) activity.getSystemService(android.content.Context.INPUT_METHOD_SERVICE))
+                    .showSoftInput(activity.number, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+        });
+        node("完成"); node("5");
+        click("切换英语模式"); node("q");
+        click("123"); click("切换拼音模式"); node("拼音键 5 JKL");
+        click("切换数字模式"); click("1"); click("0");
+        await(() -> activity.number.getText().toString().equals("10"));
+    }
 }
