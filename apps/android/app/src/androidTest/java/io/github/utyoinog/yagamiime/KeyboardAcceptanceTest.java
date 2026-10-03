@@ -294,16 +294,16 @@ public final class KeyboardAcceptanceTest extends KeyboardTestCase {
         }
     }
 
-    public void testFullPinyinAndEnglishStillWork() throws Exception {
-        click("九键");
-        for (String letter : new String[]{"n", "i", "h", "a", "o"}) { click(letter); }
+    public void testNineKeyPinyinAndEnglishStillWork() throws Exception {
+        typeDigits("64426");
         click("候选 你好");
         await(() -> activity.message.getText().toString().equals("你好"));
         click("EN");
         for (String letter : new String[]{"h", "i"}) { click(letter); }
         await(() -> activity.message.getText().toString().equals("你好hi"));
         click("中文");
-        click("全拼");
+        typeDigits("64"); click("候选 你");
+        await(() -> activity.message.getText().toString().equals("你好hi你"));
     }
 
     public void testLongPressDeleteStopsOnRelease() throws Exception {
