@@ -16,6 +16,7 @@ mod input_log;
 mod learning;
 mod marked;
 mod mode_keys;
+mod nine_key;
 mod prediction;
 mod privacy;
 mod query;
@@ -30,9 +31,9 @@ mod vocabulary;
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
-use qingjian_dictionary::{AuxCodeLookup, CodeTable, Dictionary, Match, WordList};
+use qingjian_dictionary::{AuxCodeLookup, CodeTable, Dictionary, WordList};
 
 pub use alignment::Alignment;
 pub use annotation::AnnotationReport;
@@ -61,16 +62,14 @@ pub use vocabulary::{
     FRESH_UNTIL, LevelCount, NoVocabularyTracker, VocabularySummary, VocabularyTracker,
 };
 
-use crate::candidate::{Candidate, CandidateKind, CandidateList, Language};
+use crate::candidate::{Candidate, CandidateKind, Language};
 use crate::composition::Composition;
-use crate::correction::{self, Correction, TypoCosts, typo};
+use crate::correction::{self, Correction, TypoCosts};
 use crate::emoji::EmojiTable;
-use crate::english;
-use crate::fuzzy::{Expanded, FuzzyRules};
+use crate::fuzzy::FuzzyRules;
 use crate::history::InputHistory;
 use crate::parser::{self, ParseError, Segmentation};
 use crate::punctuation::Punctuation;
-use crate::ranking::{self, Scored};
 use crate::sentence::{
     self, Conversion, Interpolation, LanguageModel, NoLanguageModel, Personal, SentenceScorer,
 };
@@ -82,6 +81,12 @@ use commit::CommitChain;
 pub struct Engine {
     /// 静态词库。
     dictionary: Dictionary,
+
+    /// 九键数字索引按需构建；关闭时沿用原有全拼路径。
+    nine_key: Option<nine_key::Index>,
+
+    /// 用户已确认的开头音节，用来消除九键歧义。
+    nine_key_locked: Vec<String>,
 
     /// 译文提供方，缺省为 [`NoTranslator`]。
     translator: Box<dyn Translator>,
@@ -385,6 +390,8 @@ impl Engine {
     pub fn new(dictionary: Dictionary) -> Self {
         Self {
             dictionary,
+            nine_key: None,
+            nine_key_locked: Vec::new(),
             extra_dictionaries: Vec::new(),
             translator: Box::new(NoTranslator),
             english_translator: Box::new(NoTranslator),
