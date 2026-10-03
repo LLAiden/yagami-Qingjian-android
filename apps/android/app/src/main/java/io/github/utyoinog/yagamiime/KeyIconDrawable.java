@@ -42,7 +42,11 @@ final class KeyIconDrawable extends Drawable {
             case SELECT:
                 canvas.drawRoundRect(3, 3, 21, 21, 2, 2, paint);
                 path(canvas, 7, 12, 10, 15, 17, 8); break;
-            case HIDE: case EXPAND:
+            case HIDE:
+                canvas.drawRoundRect(3, 3, 21, 12, 1, 1, paint);
+                line(canvas, 7, 7, 9, 7); line(canvas, 12, 7, 14, 7); line(canvas, 16, 7, 17, 7);
+                path(canvas, 7, 16, 12, 21, 17, 16); break;
+            case EXPAND:
                 path(canvas, 5, 9, 12, 16, 19, 9); break;
             case COLLAPSE:
                 path(canvas, 5, 15, 12, 8, 19, 15); break;
@@ -65,6 +69,9 @@ final class KeyIconDrawable extends Drawable {
             case GLOBE:
                 canvas.drawCircle(12, 12, 9, paint);
                 canvas.drawOval(8, 3, 16, 21, paint); line(canvas, 3, 12, 21, 12); break;
+            case MORE:
+                for (int x : new int[]{5, 12, 19}) { canvas.drawCircle(x, 12, 1.2f, paint); }
+                break;
             case SETTINGS:
                 Path gear = new Path();
                 for (int i = 0; i <= 32; i++) {
