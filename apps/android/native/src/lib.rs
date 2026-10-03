@@ -14,7 +14,7 @@ fn from_handle<'a>(handle: jlong) -> Option<&'a mut AndroidEngine> {
     if handle == 0 {
         return None;
     }
-    // SAFETY：Java 从 nativeCreate 到 nativeDestroy 独占此指针，且只在输入法主线程调用。
+    // SAFETY：Java 从 nativeCreate 到 nativeDestroy 独占此指针，所有操作在同一串行引擎队列执行。
     unsafe { (handle as *mut AndroidEngine).as_mut() }
 }
 
@@ -68,8 +68,36 @@ pub extern "system" fn Java_io_github_utyoinog_yagamiime_NativeBridge_nativePush
     let Some(character) = char::from_u32(code_point as u32) else {
         return 0;
     };
+    if engine.engine.composition().text().len() >= 64 {
+        return 0;
+    }
     engine.engine.push(character);
     1
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_io_github_utyoinog_yagamiime_NativeBridge_nativeSetNineKey(
+    _env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    handle: jlong,
+    enabled: jboolean,
+) {
+    if let Some(engine) = from_handle(handle) {
+        engine.engine.set_nine_key(enabled != 0);
+        engine.displayed.clear();
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_io_github_utyoinog_yagamiime_NativeBridge_nativeLockReading(
+    mut env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    handle: jlong,
+    reading: JString<'_>,
+) {
+    if let (Some(engine), Some(reading)) = (from_handle(handle), path(&mut env, reading)) {
+        engine.engine.lock_nine_key_syllable(&reading);
+    }
 }
 
 #[unsafe(no_mangle)]
