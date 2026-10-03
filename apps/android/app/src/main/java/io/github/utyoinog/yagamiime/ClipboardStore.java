@@ -80,14 +80,23 @@ final class ClipboardStore {
 
     void pin(Entry entry) { entry.pinned = !entry.pinned; prune(); save(); }
 
-    void remove(Entry entry) { entries.remove(entry); save(); }
+    void remove(Entry entry) {
+        entries.remove(entry);
+        // 当前复制也是历史条目时，一并删除系统副本，避免返回面板后又被记录。
+        if (entry.text.equals(current())) { clearCurrent(); }
+        save();
+    }
 
     void clear() {
         entries.clear();
         privateCopy = "";
+        clearCurrent();
+        save();
+    }
+
+    private void clearCurrent() {
         if (Build.VERSION.SDK_INT >= 28) { clipboard.clearPrimaryClip(); }
         else { clipboard.setPrimaryClip(ClipData.newPlainText("", "")); }
-        save();
     }
 
     private void prune() {
