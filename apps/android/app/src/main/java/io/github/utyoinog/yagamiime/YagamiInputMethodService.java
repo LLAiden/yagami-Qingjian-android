@@ -77,7 +77,8 @@ public final class YagamiInputMethodService extends InputMethodService implement
         composing = false;
         privateEditor = isPrivate(info);
         int variation = info.inputType & InputType.TYPE_MASK_VARIATION;
-        chinese = !privateEditor && variation != InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+        chinese = getSharedPreferences("keyboard", MODE_PRIVATE).getBoolean("chinese", true)
+                && !privateEditor && variation != InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
                 && variation != InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS
                 && variation != InputType.TYPE_TEXT_VARIATION_URI;
         final boolean target = chinese && nineKey;
@@ -94,8 +95,9 @@ public final class YagamiInputMethodService extends InputMethodService implement
     @Override public void onFinishInputView(boolean finishingInput) {
         visible = false;
         if (keyboard != null) { keyboard.cancelRepeat(); }
-        if (!finishingInput) { hide(); }
-        super.onFinishInputView(finishingInput);
+        // 系统已在关闭或重建窗口，不再次请求隐藏，避免导航模式切换后把新窗口收起。
+        // 基类会立即结束预编辑，异步转换随后只能追加文字；由 finishView 完成提交和结束。
+        if (!finishingInput) { finishView(false); }
     }
 
     @Override public void onFinishInput() {
@@ -199,6 +201,10 @@ public final class YagamiInputMethodService extends InputMethodService implement
     }
 
     @Override public void hide() {
+        finishView(true);
+    }
+
+    private void finishView(boolean requestHide) {
         final InputConnection connection = getCurrentInputConnection();
         final int currentSession = session;
         enqueue(engine -> {
@@ -210,7 +216,7 @@ public final class YagamiInputMethodService extends InputMethodService implement
                     connection.finishComposingText();
                 }
                 composing = false;
-                requestHideSelf(0);
+                if (requestHide) { requestHideSelf(0); }
             });
             return null;
         });
@@ -218,6 +224,7 @@ public final class YagamiInputMethodService extends InputMethodService implement
 
     @Override public void mode() {
         chinese = !chinese;
+        getSharedPreferences("keyboard", MODE_PRIVATE).edit().putBoolean("chinese", chinese).apply();
         boolean target = chinese && nineKey;
         enqueue(engine -> { String text = finish(engine); engine.setNineKey(target); return text.isEmpty() ? null : text; });
         configure();
