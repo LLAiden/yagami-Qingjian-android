@@ -70,6 +70,7 @@ final class KeyboardStyle {
 
     void circleToolbar(TextView view, KeyIcon icon) {
         toolbar(view, icon, false);
+        icon(view, icon, false, 18);
         StateListDrawable circles = new StateListDrawable();
         circles.addState(new int[]{android.R.attr.state_pressed}, circle(pressed));
         circles.addState(new int[]{}, circle(special));
