@@ -307,9 +307,13 @@ JSON 包含 `preedit`、`raw`、最多 60 个 `candidates` 和 `readings`；数�
 基础词库与英译 TSV 随 APK 放在 assets，按应用版本复制到私有目录后加载。
 `KeyboardView` 顶栏在每个面板保留收起入口，拼音行固定 32dp，避免输入时窗口高度变化导致按键跳位；普通按键行高
 竖屏 57dp、横屏 40dp。窗口使用导航栏与屏幕缺口 insets，横屏关闭全屏编辑。
+`CandidatePanel` 按快照原序展示多列候选（竖屏三列、横屏五列），选词编号复用 JNI 快照；输入变化时横向候选与拼音栏归位。
+`KeyboardView` 记住最近的文字 / 数字页及数字符号标志，符号与剪贴板返回该页；中英文偏好保存在 `keyboard`，私密及邮箱等字段只临时切英文。
+系统关闭或重建 IME 窗口时只提交输入，不再次 `requestHideSelf`，避免异步关闭新窗口。
 选区删除使用 `commitText("", 1)`，无可读取选区时回退 DEL；普通退格按 Unicode 字素簇删除，避免拆开组合 emoji。
 `ClipboardStore` 在键盘可见时捕获普通文本，SharedPreferences 保存最多 30 条，未固定条目 24 小时过期；
 私密字段和 Android 敏感标记不入历史，清空同时清除当前系统剪贴板。
+`ClipboardPanel` 将当前复制与相同历史合并为一项；删除当前条目时同步清除系统副本，避免再次捕获。
 Debug 使用 `.preview` 包名与独立名称，测试页仅存在于 Debug 源集中。
 当前产物含 `arm64-v8a` 与 `x86_64`，构建和安装步骤见 `apps/android/README.md`。
 
