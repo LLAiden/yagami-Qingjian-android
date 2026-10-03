@@ -47,6 +47,19 @@ pub trait Learner: Send {
         None
     }
 
+    /// 用户实际确认过的完整词句，不要求壳重新建立全词库索引。
+    fn recalled_candidates(&self, _input: &str) -> Vec<Candidate> {
+        Vec::new()
+    }
+
+    /// 显式确认的整句偏好；默认实现保持既有平台的整句学习策略。
+    fn record_sentence_choice(&mut self, _input: &str, _candidate: &Candidate) {}
+
+    /// 排序优先级与选择次数分开，学习器可使用最近一次选择，不改变造词阈值。
+    fn choice_priority(&self, input: &str, text: &str) -> u64 {
+        u64::from(self.choice_weight(input, text))
+    }
+
     /// 用户原样上屏了一个像英文词的字母串（中文模式按回车、英文模式空格 / 回车直通），或选了一个英文候选：
     /// 记进个人英文词表，下次它就是英文候选，而且排在随包词表的同形词前面。随包词表里没有的词（`gist`）只能靠这里学。
     fn learn_english(&mut self, _word: &str) {}
