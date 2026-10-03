@@ -6,6 +6,8 @@ pub(super) struct Path {
 
     pub syllables: Vec<String>,
 
+    pub typed_syllables: Vec<String>,
+
     pub score: f64,
 
     pub words: usize,
