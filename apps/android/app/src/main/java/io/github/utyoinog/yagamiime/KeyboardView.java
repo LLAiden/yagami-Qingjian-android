@@ -14,6 +14,7 @@ import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
+import android.widget.FrameLayout;
 import android.widget.TextView;
 
 import org.json.JSONArray;
@@ -45,7 +46,9 @@ final class KeyboardView extends LinearLayout {
     private final Actions actions;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final CandidateStrip strip;
-    private final View topSpace;
+    private final FrameLayout header;
+    private final LinearLayout toolbar;
+    private final ReadingPanel readingPanel;
     private final Paint backdrop = new Paint();
     private final LinearLayout body;
     private final TextView clipboardKey;
@@ -80,21 +83,22 @@ final class KeyboardView extends LinearLayout {
         setBackgroundColor(Color.TRANSPARENT);
         backdrop.setColor(style.background);
         setPadding(style.dp(3), style.dp(2), style.dp(3), style.dp(4));
-        topSpace = new View(context);
-        topSpace.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
-        addView(topSpace, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+        header = new FrameLayout(context);
+        header.setContentDescription("键盘顶栏");
+        addView(header, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, style.dp(style.candidateHeight())));
         strip = new CandidateStrip(context, actions, () -> {
             if (page == 4) { showTypingPage(); }
             else if (candidateItems.length() > 0) { showCandidatePanel(); }
-        });
-        addView(strip, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        LinearLayout toolbar = menu("工具栏");
+        }, actions::hide);
+        header.addView(strip, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        toolbar = menu("工具栏");
         toolbar(toolbar, "全选", KeyIcon.SELECT, actions::selectAll);
         toolbar(toolbar, "编辑", KeyIcon.EDIT, this::showEditing);
         toolbar(toolbar, "双因素验证", KeyIcon.AUTHENTICATOR, actions::authenticator).setTooltipText("Google 验证器");
         toolbar(toolbar, "密码管理器", KeyIcon.PASSWORD, actions::passwordManager).setTooltipText("Bitwarden");
         clipboardKey = toolbar(toolbar, "剪贴板", KeyIcon.CLIPBOARD, actions::clipboard);
         toolbar(toolbar, "收起键盘", KeyIcon.HIDE, actions::hide);
+        readingPanel = new ReadingPanel(context, actions, rowHeight);
         body = new LinearLayout(context);
         body.setOrientation(VERTICAL);
         body.setContentDescription("按键区域");
@@ -103,8 +107,8 @@ final class KeyboardView extends LinearLayout {
     }
 
     @Override protected void onMeasure(int width, int height) {
-        // 固定窗口尺寸，透明顶部用 insets 归还宿主；候选显隐不会改变触摸坐标。
-        int fixed = style.dp(style.toolbarHeight() + style.candidateHeight() + style.readingHeight() + rowHeight * 4)
+        // 顶栏只换内容，候选与工具共享高度，输入时窗口和按键都不移动。
+        int fixed = style.dp(style.candidateHeight() + rowHeight * 4)
                 + getPaddingTop() + getPaddingBottom();
         super.onMeasure(width, MeasureSpec.makeMeasureSpec(fixed, MeasureSpec.EXACTLY));
     }
@@ -114,7 +118,7 @@ final class KeyboardView extends LinearLayout {
         super.onDraw(canvas);
     }
 
-    int visibleTop() { return topSpace.getBottom(); }
+    int visibleTop() { return 0; }
 
     void invalidateConfiguration() { configured = false; }
 
@@ -148,20 +152,18 @@ final class KeyboardView extends LinearLayout {
         reset(1);
         for (int r = 0; r < 3; r++) {
             LinearLayout row = row();
-            if (r == 0) { add(row, chinese ? "拼音" : "ABC", true, this::showLetters, SIDE); }
-            else if (r == 1) { function(row, "符号", KeyIcon.SYMBOLS, this::showSymbols, SIDE); }
-            else { add(row, phone ? "*" : signed ? "−" : ".", true,
-                    () -> actions.text(phone ? "*" : signed ? "-" : "."), SIDE); }
+            String left = r == 0 ? "+" : r == 1 ? phone ? "*" : "-" : ".";
+            add(row, left, true, () -> actions.text(left), SIDE);
             for (int c = 0; c < 3; c++) {
                 String digit = Integer.toString(r * 3 + c + 1);
                 digit(row, digit, "", () -> actions.text(digit), 1);
             }
             if (r == 0) { addDelete(row, SIDE); }
-            else if (r == 1) { function(row, "剪贴板", KeyIcon.CLIPBOARD, actions::clipboard, SIDE); }
-            else if (phone || signed && decimal) {
-                String mark = phone ? "#" : ".";
+            else if (r == 1) { function(row, "符号", KeyIcon.SYMBOLS, this::showSymbols, SIDE); }
+            else {
+                String mark = phone ? "#" : "/";
                 add(row, mark, true, () -> actions.text(mark), SIDE);
-            } else { function(row, "收起键盘", KeyIcon.HIDE, actions::hide, SIDE); }
+            }
             addRow(row);
         }
         LinearLayout bottom = row();
@@ -200,8 +202,11 @@ final class KeyboardView extends LinearLayout {
             LinearLayout row = row();
             for (String mark : marks[index]) { add(row, mark, false, () -> actions.text(mark), 1); }
             if (index == 0) { addDelete(row); }
-            else if (index == 1) { add(row, "更多", true, () -> symbols((set + 1) % sets.length), 1); }
-            else { function(row, "收起键盘", KeyIcon.HIDE, actions::hide, 1.3f); }
+            else if (index == 1) { add(row, set == 0 ? "下一页" : "上一页", true, () -> symbols((set + 1) % sets.length), 1); }
+            else {
+                String extra = set == 0 ? ":" : "?";
+                add(row, extra, false, () -> actions.text(extra), 1.3f);
+            }
             addRow(row);
         }
         bottom();
@@ -259,7 +264,8 @@ final class KeyboardView extends LinearLayout {
         lastSnapshot = snapshot;
         JSONArray items = snapshot.optJSONArray("candidates");
         candidateItems = items == null ? new JSONArray() : items;
-        strip.update(snapshot, chinese && typingPage == 0);
+        updateHeader();
+        readingPanel.update(snapshot);
         if (page == 4) {
             if (candidateItems.length() == 0) { showTypingPage(); }
             else if (candidatePanel != null) { candidatePanel.update(candidateItems); }
@@ -275,11 +281,14 @@ final class KeyboardView extends LinearLayout {
 
     private void nineLetters() {
         String[] captions = {"符号", "ABC", "DEF", "GHI", "JKL", "MNO", "PQRS", "TUV", "WXYZ"};
+        LinearLayout upper = row();
+        if (readingPanel.getParent() instanceof ViewGroup) { ((ViewGroup) readingPanel.getParent()).removeView(readingPanel); }
+        upper.addView(readingPanel, new LayoutParams(style.dp(60), ViewGroup.LayoutParams.MATCH_PARENT));
+        LinearLayout grid = new LinearLayout(getContext());
+        grid.setOrientation(VERTICAL);
+        upper.addView(grid, new LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1));
         for (int r = 0; r < 3; r++) {
             LinearLayout row = row();
-            if (r == 0) { function(row, "符号", KeyIcon.SYMBOLS, this::showSymbols, SIDE); }
-            else if (r == 1) { add(row, "EN", true, actions::mode, SIDE); }
-            else { add(row, ",", true, () -> actions.text(","), SIDE); }
             for (int c = 0; c < 3; c++) {
                 int number = r * 3 + c + 1;
                 TextView key = digit(row, Integer.toString(number), captions[number - 1],
@@ -287,10 +296,11 @@ final class KeyboardView extends LinearLayout {
                 key.setContentDescription("拼音键 " + number + " " + captions[number - 1]);
             }
             if (r == 0) { addDelete(row, SIDE); }
-            else if (r == 1) { add(row, "123", true, actions::numbers, SIDE); }
+            else if (r == 1) { add(row, ",", true, () -> actions.text(","), SIDE); }
             else { add(row, ".", true, () -> actions.text("."), SIDE); }
-            addRow(row);
+            grid.addView(row, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
         }
+        body.addView(upper, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 3));
         LinearLayout row = row();
         function(row, "切换输入法", KeyIcon.GLOBE, actions::nextIme, SIDE);
         TextView numbers = add(row, "123", true, actions::numbers, 1);
@@ -347,16 +357,10 @@ final class KeyboardView extends LinearLayout {
 
     private void bottom() {
         LinearLayout row = row();
-        if (page == 2) {
-            add(row, typingPage == 1 ? "返回数字" : chinese ? "拼音" : "ABC", true, this::showTypingPage, 1.1f);
-        } else { add(row, chinese ? "EN" : "中文", true, actions::mode, 1.1f); }
-        add(row, "123", true, actions::numbers, 1);
-        if (page != 2) { function(row, "符号", KeyIcon.SYMBOLS, this::showSymbols, 0.8f); }
-        add(row, ",", true, () -> actions.text(","), 0.8f);
-        TextView space = add(row, "空格", false, actions::space, 2.5f);
+        add(row, typingPage == 1 ? "返回数字" : chinese ? "拼音" : "ABC", true, this::showTypingPage, SIDE);
+        TextView space = add(row, "空格", false, actions::space, 3);
         space.setOnLongClickListener(ignored -> { actions.nextIme(); return true; });
-        add(row, ".", true, () -> actions.text("."), 0.8f);
-        addEnter(row);
+        addEnter(row, SIDE);
         addRow(row);
     }
 
@@ -416,7 +420,13 @@ final class KeyboardView extends LinearLayout {
     private void reset(int page) {
         cancelRepeat(); this.page = page; body.removeAllViews(); candidatePanel = null;
         strip.expanded(false);
-        strip.update(lastSnapshot, chinese && typingPage == 0);
+        updateHeader();
+    }
+
+    private void updateHeader() {
+        boolean candidates = chinese && typingPage == 0 && page == 0 && !lastSnapshot.optString("raw").isEmpty();
+        strip.update(lastSnapshot, candidates);
+        toolbar.setVisibility(candidates ? GONE : VISIBLE);
     }
 
     private LinearLayout row() {
@@ -436,7 +446,7 @@ final class KeyboardView extends LinearLayout {
         LinearLayout menu = row();
         menu.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
         menu.setContentDescription(description);
-        addView(menu, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, style.dp(style.toolbarHeight())));
+        header.addView(menu, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         return menu;
     }
 
@@ -444,7 +454,7 @@ final class KeyboardView extends LinearLayout {
         TextView key = style.key(label, true, action);
         style.circleToolbar(key, icon);
         key.setTooltipText(label);
-        row.addView(key, new LayoutParams(style.dp(48), ViewGroup.LayoutParams.MATCH_PARENT));
+        row.addView(key, new LayoutParams(style.dp(48), style.dp(style.toolbarHeight())));
         return key;
     }
 
