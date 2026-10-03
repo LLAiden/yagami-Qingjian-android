@@ -12,6 +12,10 @@ Yagami 输入法基于 [qingjian-team/qingjian](https://github.com/qingjian-team
 
 本项目采用 GPL-3.0-or-later，许可证全文见 [LICENSE](LICENSE)。本项目按现状提供，不附带任何担保。
 
+LLAiden 的 0.2.0 预览改造基于 Utyoin-OG/yagami-Qingjian-android 提交
+`79d9dac7ce0c156b8dcf76fd885f0f01a4495cbb`：增加 Core 九键拼音、Android 九宫格键盘、剪贴板、
+选区删除、收起入口、导航区域适配和系统输入法交互验收。原项目和上游贡献者的版权与许可保持有效。
+
 随 APK 分发的词库和译词表具有各自的来源与许可。再分发时必须保留 `assets/lexicon`、
 `assets/glossary` 中的来源、版权和许可证说明。
 
