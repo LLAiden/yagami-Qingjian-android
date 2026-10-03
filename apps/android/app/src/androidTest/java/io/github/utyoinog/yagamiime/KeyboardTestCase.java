@@ -140,6 +140,13 @@ public abstract class KeyboardTestCase extends InstrumentationTestCase {
     }
 
     protected void click(String description) throws Exception {
+        if (find(description) == null && find("展开候选") != null
+                && java.util.Arrays.asList("编辑", "全选", "剪贴板", "密码管理器", "双因素验证").contains(description)) {
+            click("展开候选");
+        }
+        if (find(description) == null && description.equals("符号") && find("拼音键 1 符号") != null) {
+            description = "拼音键 1 符号";
+        }
         // 设置更新会改变 IME 窗口高度；等布局稳定后使用当前节点的坐标。
         node(description);
         Rect previous = new Rect();
@@ -205,6 +212,7 @@ public abstract class KeyboardTestCase extends InstrumentationTestCase {
     }
 
     protected AccessibilityNodeInfo find(String description) {
+        if (android.os.Build.VERSION.SDK_INT >= 33) { getInstrumentation().getUiAutomation().clearCache(); }
         for (AccessibilityWindowInfo window : getInstrumentation().getUiAutomation().getWindows()) {
             AccessibilityNodeInfo root = window.getRoot();
             AccessibilityNodeInfo match = search(root, description, false);
