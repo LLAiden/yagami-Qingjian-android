@@ -10,11 +10,15 @@ final class KeyboardPreferences {
     final int theme;
     final boolean dark;
     final int nasal;
+    final boolean learning;
+    final boolean clipboardHistory;
 
     KeyboardPreferences(Context context) {
         this.context = context;
         height = Math.max(-1, Math.min(1, LocalStorage.open(context, "keyboard").getInt("height", 0)));
         theme = Math.max(0, Math.min(2, LocalStorage.open(context, "keyboard").getInt("theme", 0)));
+        learning = LocalStorage.open(context, "keyboard").getInt("learning", 1) == 1;
+        clipboardHistory = LocalStorage.open(context, "keyboard").getInt("clipboard_history", 1) == 1;
         nasal = (LocalStorage.open(context, "keyboard").getInt("an_ang", 0) == 1 ? 1 : 0)
                 | (LocalStorage.open(context, "keyboard").getInt("en_eng", 0) == 1 ? 2 : 0)
                 | (LocalStorage.open(context, "keyboard").getInt("in_ing", 0) == 1 ? 4 : 0);
@@ -22,7 +26,8 @@ final class KeyboardPreferences {
                 & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
     }
 
-    int signature() { return height * 3 + theme + (dark ? 100 : 0) + nasal * 256; }
+    int signature() { return height * 3 + theme + (dark ? 100 : 0) + nasal * 256
+            + (learning ? 2048 : 0) + (clipboardHistory ? 4096 : 0); }
 
     static int nasalBit(String name) {
         switch (name) {
