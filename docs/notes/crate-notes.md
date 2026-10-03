@@ -308,7 +308,7 @@ DLL 不读文件、不查 mtime。`SessionOpened` 只回过协议版本对得上
 JSON 包含 `preedit`、`raw`、最多 60 个 `candidates` 和 `readings`；数字解码与候选排序在 Core，Java 不查词库。
 基础词库与英译 TSV 随 APK 放在 assets，按应用版本复制到私有目录后加载。
 `KeyboardView` 自上而下为候选区、工具栏、按键区域。全选 / 编辑 / 双因素验证 / 密码管理器 / 剪贴板 / 收起依次排列在同一行，以固定 48dp 宽按钮靠右，收起入口各面板可用。
-`circleToolbar` 为菜单绘制 36dp 圆底和居中 24dp 图标，背景 inset 不缩小点击范围；横屏调整纵向 inset，圆底不拉伸成椭圆。
+`circleToolbar` 为菜单绘制 36dp 圆底和居中 18dp 图标，背景 inset 不缩小点击范围；横屏调整纵向 inset，圆底不拉伸成椭圆。
 `CandidateStrip` 无拼音或处于英语 / 数字页时 GONE，有拼音时向上展开；候选 / 拼音高度竖屏 60 / 48dp、横屏 48 / 32dp。
 标准按键行高竖屏 62dp、横屏 40dp；窗口底部锚定，候选显隐时按键屏幕位置保持不变。窗口使用导航栏与屏幕缺口 insets，横屏关闭全屏编辑。
 候选显隐不能直接改变 IME 窗口尺寸，否则窗口位置与触摸 / 辅助功能坐标可能短暂不同步。KeyboardView 预留透明顶部、固定测量高度，onComputeInsets 仅将实际可见区域报告为内容与触摸区域；隐藏候选的空间归还宿主，不绘制空白候选栏。
@@ -322,8 +322,9 @@ JSON 包含 `preedit`、`raw`、最多 60 个 `candidates` 和 `readings`；数�
 `KeyboardView` 记住最近的文字 / 数字页及数字符号标志，符号与剪贴板返回该页；中英文偏好保存在 `keyboard`，私密及邮箱等字段只临时切英文。
 Android 只开放拼音九键、英语全键盘、数字九键；旧 `nine_key` 偏好不再影响中文布局，JNI 的全拼能力仍供其他调用方与测试使用。
 拼音底行中央三列依次为数字模式 / 空格 / 英语模式，权重各 1，左右系统输入法与动作列仍固定 60dp。
-英语底行左右功能列固定 60dp，内部数字 / 符号与逗号 / 句号权重对称，使空格处于中线；`LetterCase` 保存 LOWER / SINGLE_UPPER / CAPS_LOCK，单次大写输入字母后复位，锁定状态跨临时面板保留。
-服务通过标准启动 Intent 打开 `com.x8bit.bitwarden` 与 `com.google.android.apps.authenticator2`，Manifest 仅查询这两个包；先解析入口，存在时提交当前拼音再打开，不存在时保留当前输入并提示。未接入密码读取或验证码读取。
+英语底行左右功能列固定 60dp（符号与动作）；内部逗号 / 数字、中文 / 句号权重对称，数字与中文分别紧邻空格左右，使空格处于中线；`LetterCase` 保存 LOWER / SINGLE_UPPER / CAPS_LOCK，单次大写输入字母后复位，锁定状态跨临时面板保留。
+数字底行中央三列为英语 / 0 / 拼音，权重各 1；空格在左侧固定功能列，小数点与电话符号使用其他侧栏键位。
+服务通过标准启动 Intent 打开 `com.x8bit.bitwarden` 与 `com.google.android.apps.authenticator2`，Manifest 仅查询这两个包；Bitwarden 优先解析限定包名的 `bitwarden://my_vault`，不支持时回退主页。先解析入口，存在时提交当前拼音再打开，不存在时保留当前输入并提示。未接入密码读取或验证码读取。
 `Actions.numbers` 在串行队列提交当前拼音后切数字页；各模式标点均为 ASCII，临时符号面板不再含中文或数学专页。
 同一输入框直输期间的 restartInput 保留会话和按下中的视图；configure 在语言、动作、隐私属性和类型相同时不重建按键。
 宿主 restartInput 移除 composing 标记后保留短暂恢复机会；仅类型、隐私属性、光标前预编辑都未变化时恢复，否则清空旧组句。
