@@ -4845,11 +4845,12 @@ checksum = "3ad82d2a33cdc9674dc7465672f271e096168fcdbe0f799d9e6db8c5892679dc"
 
 [[package]]
 name = "yagami-android-native"
-version = "0.2.7"
+version = "1.0.0"
 dependencies = [
  "jni",
  "qingjian-core",
  "qingjian-dictionary",
+ "qingjian-learning",
  "qingjian-translate",
  "serde",
  "serde_json",
