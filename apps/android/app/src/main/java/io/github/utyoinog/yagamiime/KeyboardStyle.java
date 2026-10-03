@@ -68,6 +68,22 @@ final class KeyboardStyle {
         icon(view, icon, keepLabel, keepLabel ? 18 : 24);
     }
 
+    void circleToolbar(TextView view, KeyIcon icon) {
+        toolbar(view, icon, false);
+        StateListDrawable circles = new StateListDrawable();
+        circles.addState(new int[]{android.R.attr.state_pressed}, circle(pressed));
+        circles.addState(new int[]{}, circle(special));
+        int vertical = dp((toolbarHeight() - 36) / 2);
+        view.setBackground(new android.graphics.drawable.InsetDrawable(circles, dp(6), vertical, dp(6), vertical));
+    }
+
+    private GradientDrawable circle(int color) {
+        GradientDrawable shape = new GradientDrawable();
+        shape.setShape(GradientDrawable.OVAL); shape.setColor(color);
+        shape.setStroke(dp(1), border);
+        return shape;
+    }
+
     void iconAbove(TextView view, KeyIcon icon, int size) {
         KeyIconDrawable drawable = new KeyIconDrawable(icon, view.getCurrentTextColor());
         drawable.setBounds(0, 0, dp(size), dp(size));
