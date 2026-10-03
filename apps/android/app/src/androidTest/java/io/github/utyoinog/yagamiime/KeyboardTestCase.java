@@ -164,7 +164,8 @@ public abstract class KeyboardTestCase extends InstrumentationTestCase {
     }
 
     protected AccessibilityNodeInfo node(String description) throws Exception {
-        try { await(() -> find(description) != null); }
+        AccessibilityNodeInfo[] found = new AccessibilityNodeInfo[1];
+        try { await(() -> { found[0] = find(description); return found[0] != null; }); }
         catch (AssertionError error) {
             android.graphics.Bitmap screenshot = getInstrumentation().getUiAutomation().takeScreenshot();
             if (screenshot != null) {
@@ -176,9 +177,7 @@ public abstract class KeyboardTestCase extends InstrumentationTestCase {
             for (AccessibilityWindowInfo window : getInstrumentation().getUiAutomation().getWindows()) { dump(window.getRoot()); }
             throw error;
         }
-        AccessibilityNodeInfo node = find(description);
-        assertNotNull(description, node);
-        return node;
+        return found[0];
     }
 
     protected void dump(AccessibilityNodeInfo node) {
