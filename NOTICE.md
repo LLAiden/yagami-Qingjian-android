@@ -36,3 +36,7 @@ Yagami 输入法与 qingjian-team 不存在隶属、授权或官方发布关系�
 
 Android 使用腾讯 [MMKV 2.4.2](https://github.com/Tencent/MMKV/tree/v2.4.2)，许可为 BSD-3-Clause，版权归腾讯及对应贡献者。
 其完整许可随 APK 打包在 `assets/licenses/mmkv.txt`，源码副本见 [许可文件](apps/android/app/src/main/assets/licenses/mmkv.txt)。
+
+1.0.0 在 LLAiden 分支增加平台无关的有界选词偏好与个人词句恢复，Android Keystore 加密存储、隐私设置、敏感剪贴板预览与回归验证。
+未新增预制词库或语言模型；个人词句由用户明确选词建立，原有拼音转换基础词库和释义表的来源与许可保持不变。
+`assets/evaluation` 为合成的固定测试集，不包含用户数据，也不打包进入 Android 应用。
