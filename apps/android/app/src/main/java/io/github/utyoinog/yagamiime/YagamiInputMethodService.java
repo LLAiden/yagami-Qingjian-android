@@ -328,6 +328,29 @@ public final class YagamiInputMethodService extends InputMethodService implement
         if (keyboard != null) { keyboard.showClipboard(clipboard, privateEditor); }
     }
 
+    @Override public void passwordManager() {
+        openExternalApp("com.x8bit.bitwarden", "Bitwarden");
+    }
+
+    @Override public void authenticator() {
+        openExternalApp("com.google.android.apps.authenticator2", "Google 验证器");
+    }
+
+    private void openExternalApp(String packageName, String label) {
+        android.content.Intent launch = getPackageManager().getLaunchIntentForPackage(packageName);
+        if (launch == null) {
+            Toast.makeText(this, "未安装 " + label, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        launch.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+        enqueue(engine -> finish(engine), connection -> {
+            try { startActivity(launch); }
+            catch (android.content.ActivityNotFoundException | SecurityException error) {
+                Toast.makeText(this, "无法打开 " + label, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
     @Override public void selectAll() {
         editorAction(EditorCommand.SELECT_ALL);
     }
