@@ -82,6 +82,10 @@ pub struct Args {
     #[arg(long)]
     pub english_mode: bool,
 
+    /// 九键拼音：输入 2–9 数字编码，验证候选与逐键延迟。
+    #[arg(long, conflicts_with = "english_mode")]
+    pub nine_key: bool,
+
     /// 打开中文优先（配置 [general] chinese_first = true）：整段是英文词时中文候选排第一、英文第二，评测两种排法用
     #[arg(long)]
     pub chinese_first: bool,
