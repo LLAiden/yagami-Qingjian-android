@@ -56,6 +56,26 @@ final class KeyboardSettingsPanel extends LinearLayout {
             themes.addView(choice, cell);
         }
         content.addView(themes);
+        TextView fuzzyLabel = new TextView(context);
+        fuzzyLabel.setText("前后鼻音模糊音 · 默认关闭");
+        fuzzyLabel.setTextColor(style.text); fuzzyLabel.setTextSize(13);
+        fuzzyLabel.setPadding(style.dp(8), 0, 0, 0);
+        content.addView(fuzzyLabel, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, style.dp(32)));
+        LinearLayout fuzzyChoices = new LinearLayout(context);
+        String[] names = {"an_ang", "en_eng", "in_ing"};
+        String[] fuzzyLabels = {"an/ang", "en/eng", "in/ing"};
+        for (int i = 0; i < names.length; i++) {
+            final String name = names[i];
+            final boolean enabled = (preferences.nasal & KeyboardPreferences.nasalBit(name)) != 0;
+            TextView choice = style.key((enabled ? "✓ " : "") + fuzzyLabels[i], true,
+                    () -> setting.accept(name, enabled ? 0 : 1));
+            choice.setTextSize(13); choice.setContentDescription("模糊音 " + fuzzyLabels[i]);
+            if (enabled) { style.primary(choice); }
+            LayoutParams cell = new LayoutParams(0, style.dp(48), 1);
+            cell.setMargins(style.dp(3), 0, style.dp(3), 0);
+            fuzzyChoices.addView(choice, cell);
+        }
+        content.addView(fuzzyChoices);
         scroll.addView(content);
         addView(scroll, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
     }
