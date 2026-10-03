@@ -116,11 +116,11 @@ public final class KeyboardAuditTest extends KeyboardTestCase {
     public void testKeyboardHeightChangesAndPersists() throws Exception {
         int normal = bounds("空格").height();
         click("编辑"); click("设置"); click("高度 矮");
-        await(() -> getInstrumentation().getTargetContext().getSharedPreferences("keyboard", Context.MODE_PRIVATE).getInt("height", 0) == -1);
+        await(() -> LocalStorage.open(getInstrumentation().getTargetContext(), "keyboard").getInt("height", 0) == -1);
         click("返回键盘");
         assertTrue(bounds("空格").height() < normal);
         click("编辑"); click("设置"); click("高度 高");
-        await(() -> getInstrumentation().getTargetContext().getSharedPreferences("keyboard", Context.MODE_PRIVATE).getInt("height", 0) == 1);
+        await(() -> LocalStorage.open(getInstrumentation().getTargetContext(), "keyboard").getInt("height", 0) == 1);
         click("返回键盘");
         assertTrue(bounds("空格").height() > normal);
         click("收起键盘"); await(() -> find("收起键盘") == null); showMessage();
@@ -130,7 +130,7 @@ public final class KeyboardAuditTest extends KeyboardTestCase {
     public void testHeightSettingKeepsNumericPage() throws Exception {
         click("123"); click("1");
         click("编辑"); click("设置"); click("高度 高");
-        await(() -> getInstrumentation().getTargetContext().getSharedPreferences("keyboard", Context.MODE_PRIVATE).getInt("height", 0) == 1);
+        await(() -> LocalStorage.open(getInstrumentation().getTargetContext(), "keyboard").getInt("height", 0) == 1);
         click("返回键盘"); click("2");
         await(() -> activity.message.getText().toString().equals("12"));
         assertNotNull(find("0"));
