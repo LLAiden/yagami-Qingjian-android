@@ -7,6 +7,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.InputType;
+import android.text.TextUtils;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowInsets;
@@ -22,6 +23,7 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 
 public final class YagamiInputMethodService extends InputMethodService implements KeyboardView.Actions {
     private interface Command { String run(NativeBridge bridge); }
@@ -43,6 +45,9 @@ public final class YagamiInputMethodService extends InputMethodService implement
     private long sequence;
     private int renderedSession;
     private long renderedSequence;
+    private long lastLimitNotice;
+    private int editorInputType;
+    private Runnable pendingCompositionEnd;
     private JSONObject snapshot = new JSONObject();
 
     @Override public void onCreate() {
@@ -71,11 +76,26 @@ public final class YagamiInputMethodService extends InputMethodService implement
 
     @Override public void onStartInput(EditorInfo info, boolean restarting) {
         super.onStartInput(info, restarting);
-        if (restarting && composing) { return; }
+        cancelPendingCompositionEnd();
+        boolean nextPrivate = isPrivate(info);
+        if (restarting && composing && editorInputType == info.inputType && privateEditor == nextPrivate) {
+            String preedit = snapshot.optString("preedit");
+            InputConnection connection = getCurrentInputConnection();
+            CharSequence before = connection == null ? null : connection.getTextBeforeCursor(preedit.length(), 0);
+            if (connection != null && !preedit.isEmpty() && info.initialSelStart == info.initialSelEnd
+                    && info.initialSelEnd >= preedit.length() && before != null && preedit.contentEquals(before)) {
+                connection.setComposingRegion(info.initialSelEnd - preedit.length(), info.initialSelEnd);
+                enqueue(engine -> null);
+                return;
+            }
+        }
+        InputConnection connection = getCurrentInputConnection();
+        if (connection != null) { connection.finishComposingText(); }
+        editorInputType = info.inputType;
         session++;
         selected = info.initialSelStart != info.initialSelEnd;
         composing = false;
-        privateEditor = isPrivate(info);
+        privateEditor = nextPrivate;
         int variation = info.inputType & InputType.TYPE_MASK_VARIATION;
         chinese = getSharedPreferences("keyboard", MODE_PRIVATE).getBoolean("chinese", true)
                 && !privateEditor && variation != InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
@@ -101,6 +121,7 @@ public final class YagamiInputMethodService extends InputMethodService implement
     }
 
     @Override public void onFinishInput() {
+        cancelPendingCompositionEnd();
         session++;
         if (keyboard != null) { keyboard.cancelRepeat(); }
         InputConnection connection = getCurrentInputConnection();
@@ -116,12 +137,29 @@ public final class YagamiInputMethodService extends InputMethodService implement
         super.onUpdateSelection(oldStart, oldEnd, newStart, newEnd, composingStart, composingEnd);
         selected = newStart != newEnd;
         if (composing && (selected || composingEnd < 0 || newEnd != composingEnd)) {
-            // 用户移动了光标或选择文字：结束旧组句，后续输入不能覆盖原来的位置。
-            composing = false;
-            InputConnection connection = getCurrentInputConnection();
-            if (connection != null) { connection.finishComposingText(); }
-            enqueue(engine -> { engine.clear(); return null; });
+            cancelPendingCompositionEnd();
+            if (!selected && newEnd == oldEnd && composingEnd < 0) {
+                // restartInput 先移除 composing 标记，下一回调才通知重启；保留短暂恢复机会。
+                final int currentSession = session;
+                pendingCompositionEnd = () -> {
+                    if (currentSession == session && composing) { clearComposition(); }
+                };
+                main.postDelayed(pendingCompositionEnd, 100);
+            } else { clearComposition(); }
         }
+    }
+
+    private void cancelPendingCompositionEnd() {
+        if (pendingCompositionEnd != null) { main.removeCallbacks(pendingCompositionEnd); pendingCompositionEnd = null; }
+    }
+
+    private void clearComposition() {
+        cancelPendingCompositionEnd();
+        // 光标移动、选区或宿主修改文字后，旧组句不能覆盖新内容。
+        composing = false;
+        InputConnection connection = getCurrentInputConnection();
+        if (connection != null) { connection.finishComposingText(); }
+        enqueue(engine -> { engine.clear(); return null; });
     }
 
     @Override public void onDestroy() {
@@ -136,7 +174,19 @@ public final class YagamiInputMethodService extends InputMethodService implement
 
     @Override public void character(char character) {
         if (chinese && (Character.isLowerCase(character) || character >= '2' && character <= '9')) {
-            enqueue(engine -> { engine.push(character); return null; });
+            final int currentSession = session;
+            enqueue(engine -> {
+                if (!engine.push(character)) {
+                    main.post(() -> {
+                        long now = android.os.SystemClock.uptimeMillis();
+                        if (!destroyed && currentSession == session && now - lastLimitNotice > 2000) {
+                            lastLimitNotice = now;
+                            Toast.makeText(this, "输入已满，请先选词或删除", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                }
+                return null;
+            });
         } else {
             text(String.valueOf(character));
         }
@@ -147,6 +197,7 @@ public final class YagamiInputMethodService extends InputMethodService implement
     }
 
     @Override public void delete() {
+        if (pendingCompositionEnd != null) { clearComposition(); }
         InputConnection connection = getCurrentInputConnection();
         if (connection == null) { return; }
         if (EditorController.deleteSelection(connection, selected)) {
@@ -192,7 +243,11 @@ public final class YagamiInputMethodService extends InputMethodService implement
                 if (!committed.isEmpty()) { connection.commitText(committed, 1); }
                 connection.finishComposingText();
                 int action = info.imeOptions & EditorInfo.IME_MASK_ACTION;
-                if (multiline(info) || action == EditorInfo.IME_ACTION_NONE || action == EditorInfo.IME_ACTION_UNSPECIFIED) {
+                if (customAction(info)) { connection.performEditorAction(info.actionId); }
+                else if (numericWithoutAction(info)) {
+                    connection.performEditorAction(EditorInfo.IME_ACTION_DONE);
+                    requestHideSelf(0);
+                } else if (multiline(info) || action == EditorInfo.IME_ACTION_NONE || action == EditorInfo.IME_ACTION_UNSPECIFIED) {
                     connection.commitText("\n", 1);
                 } else { connection.performEditorAction(action); }
             });
@@ -253,6 +308,10 @@ public final class YagamiInputMethodService extends InputMethodService implement
     }
 
     @Override public void selectAll() {
+        editorAction(EditorCommand.SELECT_ALL);
+    }
+
+    @Override public void editorAction(EditorCommand command) {
         final InputConnection connection = getCurrentInputConnection();
         final int currentSession = session;
         enqueue(engine -> {
@@ -262,7 +321,7 @@ public final class YagamiInputMethodService extends InputMethodService implement
                 if (!committed.isEmpty()) { connection.commitText(committed, 1); }
                 connection.finishComposingText();
                 composing = false;
-                connection.performContextMenuAction(android.R.id.selectAll);
+                EditorController.execute(connection, command);
             });
             return null;
         });
@@ -273,8 +332,23 @@ public final class YagamiInputMethodService extends InputMethodService implement
         if (manager != null) { manager.showInputMethodPicker(); }
     }
 
+    @Override public void setting(String name, int value) {
+        if (name.equals("height")) { if (value < -1 || value > 1) { return; } }
+        else if (name.equals("theme")) { if (value < 0 || value > 2) { return; } }
+        else { return; }
+        enqueue(this::finish, connection -> {
+            getSharedPreferences("keyboard", MODE_PRIVATE).edit().putInt(name, value).apply();
+            replaceKeyboard(true);
+        });
+    }
+
     private void enqueue(Command command) {
+        enqueue(command, null);
+    }
+
+    private void enqueue(Command command, Consumer<InputConnection> after) {
         if (destroyed) { return; }
+        if (pendingCompositionEnd != null) { clearComposition(); }
         final int currentSession = session;
         final long operation = ++sequence;
         final InputConnection connection = getCurrentInputConnection();
@@ -283,7 +357,10 @@ public final class YagamiInputMethodService extends InputMethodService implement
             String committed = command.run(bridge);
             JSONObject state = state();
             main.post(() -> {
-                if (!destroyed && currentSession == session) { apply(state, committed, connection, currentSession, operation); }
+                if (!destroyed && currentSession == session) {
+                    apply(state, committed, connection, currentSession, operation);
+                    if (after != null) { after.accept(connection); }
+                }
             });
         });
     }
@@ -330,6 +407,7 @@ public final class YagamiInputMethodService extends InputMethodService implement
 
     private void configure() {
         if (keyboard == null) { return; }
+        if (keyboard.preferencesChanged()) { replaceKeyboard(false); return; }
         EditorInfo info = getCurrentInputEditorInfo();
         keyboard.configure(chinese, nineKey, enterLabel(info), privateEditor);
         if (info != null) {
@@ -342,6 +420,16 @@ public final class YagamiInputMethodService extends InputMethodService implement
         }
     }
 
+    private void replaceKeyboard(boolean settings) {
+        KeyboardView previous = keyboard;
+        View replacement = onCreateInputView();
+        // 新视图首次接收 insets 前沿用当前安全区，防止返回键先贴底再上移。
+        replacement.setPadding(previous.getPaddingLeft(), previous.getPaddingTop(), previous.getPaddingRight(), previous.getPaddingBottom());
+        setInputView(replacement);
+        replacement.requestApplyInsets();
+        if (settings) { keyboard.restoreSettings(previous); }
+    }
+
     private void captureClipboard() {
         if (!visible || destroyed) { return; }
         clipboard.capture(privateEditor);
@@ -349,14 +437,14 @@ public final class YagamiInputMethodService extends InputMethodService implement
     }
 
     private void applyInsets() {
+        KeyboardStyle style = new KeyboardStyle(this);
         Window window = getWindow().getWindow();
         if (window != null) {
-            window.setNavigationBarColor(KeyboardStyle.BACKGROUND);
-            window.getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+            window.setNavigationBarColor(style.background);
+            window.getDecorView().setSystemUiVisibility(style.dark ? 0 : View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
             if (Build.VERSION.SDK_INT >= 29) { window.setNavigationBarContrastEnforced(false); }
             if (Build.VERSION.SDK_INT >= 30) { window.setDecorFitsSystemWindows(false); }
         }
-        KeyboardStyle style = new KeyboardStyle(this);
         keyboard.setOnApplyWindowInsetsListener((view, insets) -> {
             int left, right, bottom;
             if (Build.VERSION.SDK_INT >= 30) {
@@ -404,13 +492,28 @@ public final class YagamiInputMethodService extends InputMethodService implement
 
     private static String enterLabel(EditorInfo info) {
         if (info == null || multiline(info)) { return "换行"; }
+        if (customAction(info)) { return info.actionLabel.toString(); }
+        if (numericWithoutAction(info)) { return "完成"; }
         switch (info.imeOptions & EditorInfo.IME_MASK_ACTION) {
             case EditorInfo.IME_ACTION_SEND: return "发送";
             case EditorInfo.IME_ACTION_SEARCH: return "搜索";
             case EditorInfo.IME_ACTION_GO: return "前往";
             case EditorInfo.IME_ACTION_NEXT: return "下一项";
+            case EditorInfo.IME_ACTION_PREVIOUS: return "上一项";
             case EditorInfo.IME_ACTION_DONE: return "完成";
             default: return "换行";
         }
+    }
+
+    private static boolean customAction(EditorInfo info) {
+        return info != null && !multiline(info) && !TextUtils.isEmpty(info.actionLabel);
+    }
+
+    private static boolean numericWithoutAction(EditorInfo info) {
+        if (info == null) { return false; }
+        int type = info.inputType & InputType.TYPE_MASK_CLASS;
+        int action = info.imeOptions & EditorInfo.IME_MASK_ACTION;
+        return (type == InputType.TYPE_CLASS_NUMBER || type == InputType.TYPE_CLASS_PHONE || type == InputType.TYPE_CLASS_DATETIME)
+                && (action == EditorInfo.IME_ACTION_NONE || action == EditorInfo.IME_ACTION_UNSPECIFIED);
     }
 }
