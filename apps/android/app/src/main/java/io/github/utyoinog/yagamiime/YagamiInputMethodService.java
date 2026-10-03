@@ -42,7 +42,7 @@ public final class YagamiInputMethodService extends InputMethodService implement
     private boolean visible;
     private boolean destroyed;
     private int session;
-    private long sequence;
+    private volatile long sequence;
     private int renderedSession;
     private long renderedSequence;
     private long lastLimitNotice;
@@ -52,7 +52,7 @@ public final class YagamiInputMethodService extends InputMethodService implement
 
     @Override public void onCreate() {
         super.onCreate();
-        nineKey = getSharedPreferences("keyboard", MODE_PRIVATE).getBoolean("nine_key", true);
+        nineKey = LocalStorage.open(this, "keyboard").getBoolean("nine_key", true);
         clipboard = new ClipboardStore(this);
         clipboard.manager().addPrimaryClipChangedListener(clipListener);
         engineQueue.execute(() -> {
@@ -78,6 +78,12 @@ public final class YagamiInputMethodService extends InputMethodService implement
         super.onStartInput(info, restarting);
         cancelPendingCompositionEnd();
         boolean nextPrivate = isPrivate(info);
+        if (restarting && !composing && editorInputType == info.inputType && privateEditor == nextPrivate) {
+            // 同一输入框重启不能取消已接收的直输按键或正在按下的视图。
+            selected = info.initialSelStart != info.initialSelEnd;
+            enqueue(engine -> null);
+            return;
+        }
         if (restarting && composing && editorInputType == info.inputType && privateEditor == nextPrivate) {
             String preedit = snapshot.optString("preedit");
             InputConnection connection = getCurrentInputConnection();
@@ -92,17 +98,19 @@ public final class YagamiInputMethodService extends InputMethodService implement
         InputConnection connection = getCurrentInputConnection();
         if (connection != null) { connection.finishComposingText(); }
         editorInputType = info.inputType;
+        if (keyboard != null) { keyboard.invalidateConfiguration(); }
         session++;
         selected = info.initialSelStart != info.initialSelEnd;
         composing = false;
         privateEditor = nextPrivate;
         int variation = info.inputType & InputType.TYPE_MASK_VARIATION;
-        chinese = getSharedPreferences("keyboard", MODE_PRIVATE).getBoolean("chinese", true)
+        chinese = LocalStorage.open(this, "keyboard").getBoolean("chinese", true)
                 && !privateEditor && variation != InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
                 && variation != InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS
                 && variation != InputType.TYPE_TEXT_VARIATION_URI;
         final boolean target = chinese && nineKey;
-        enqueue(engine -> { engine.clear(); engine.setNineKey(target); return null; });
+        final int fuzzy = new KeyboardPreferences(this).nasal;
+        enqueue(engine -> { engine.clear(); engine.setNineKey(target); engine.setFuzzy(fuzzy); return null; });
     }
 
     @Override public void onStartInputView(EditorInfo info, boolean restarting) {
@@ -279,7 +287,7 @@ public final class YagamiInputMethodService extends InputMethodService implement
 
     @Override public void mode() {
         chinese = !chinese;
-        getSharedPreferences("keyboard", MODE_PRIVATE).edit().putBoolean("chinese", chinese).apply();
+        LocalStorage.open(this, "keyboard").edit().putBoolean("chinese", chinese).apply();
         boolean target = chinese && nineKey;
         enqueue(engine -> { String text = finish(engine); engine.setNineKey(target); return text.isEmpty() ? null : text; });
         configure();
@@ -287,7 +295,7 @@ public final class YagamiInputMethodService extends InputMethodService implement
 
     @Override public void scheme() {
         nineKey = !nineKey;
-        getSharedPreferences("keyboard", MODE_PRIVATE).edit().putBoolean("nine_key", nineKey).apply();
+        LocalStorage.open(this, "keyboard").edit().putBoolean("nine_key", nineKey).apply();
         boolean target = chinese && nineKey;
         enqueue(engine -> { String text = finish(engine); engine.setNineKey(target); return text.isEmpty() ? null : text; });
         configure();
@@ -333,11 +341,18 @@ public final class YagamiInputMethodService extends InputMethodService implement
     }
 
     @Override public void setting(String name, int value) {
+        final int bit = KeyboardPreferences.nasalBit(name);
         if (name.equals("height")) { if (value < -1 || value > 1) { return; } }
         else if (name.equals("theme")) { if (value < 0 || value > 2) { return; } }
+        else if (bit != 0) { if (value < 0 || value > 1) { return; } }
         else { return; }
-        enqueue(this::finish, connection -> {
-            getSharedPreferences("keyboard", MODE_PRIVATE).edit().putInt(name, value).apply();
+        final int fuzzy = (new KeyboardPreferences(this).nasal & ~bit) | (value == 1 ? bit : 0);
+        enqueue(engine -> {
+            String text = finish(engine);
+            if (bit != 0) { engine.setFuzzy(fuzzy); }
+            return text;
+        }, connection -> {
+            LocalStorage.open(this, "keyboard").edit().putInt(name, value).apply();
             replaceKeyboard(true);
         });
     }
@@ -355,6 +370,8 @@ public final class YagamiInputMethodService extends InputMethodService implement
         engineQueue.execute(() -> {
             if (bridge == null) { return; }
             String committed = command.run(bridge);
+            // 每个按键仍按序执行；只省略已被新操作取代且没有提交或后续动作的查询。
+            if (operation != sequence && committed == null && after == null) { return; }
             JSONObject state = state();
             main.post(() -> {
                 if (!destroyed && currentSession == session) {
@@ -371,14 +388,18 @@ public final class YagamiInputMethodService extends InputMethodService implement
     }
 
     private void apply(JSONObject state, String committed, InputConnection connection, int inputSession, long operation) {
-        if (connection != null && committed != null && !committed.isEmpty()) { connection.commitText(committed, 1); }
-        if (operation != sequence) { return; }
-        snapshot = state;
-        renderedSequence = operation;
-        renderedSession = inputSession;
+        boolean latest = operation == sequence;
+        if (latest) {
+            snapshot = state;
+            renderedSequence = operation;
+            renderedSession = inputSession;
+        }
         if (connection != null) {
             connection.beginBatchEdit();
             try {
+                // 分段选词的提交与剩余预编辑必须在同一批次，避免中途选区通知清空后半句。
+                if (committed != null && !committed.isEmpty()) { connection.commitText(committed, 1); }
+                if (!latest) { return; }
                 String preedit = state.optString("preedit");
                 if (!state.optString("raw").isEmpty()) {
                     composing = true;
@@ -390,7 +411,7 @@ public final class YagamiInputMethodService extends InputMethodService implement
                 }
             } finally { connection.endBatchEdit(); }
         }
-        if (keyboard != null) { keyboard.snapshot(state); }
+        if (latest && keyboard != null) { keyboard.snapshot(state); }
     }
 
     private String finish(NativeBridge engine) {
@@ -409,15 +430,7 @@ public final class YagamiInputMethodService extends InputMethodService implement
         if (keyboard == null) { return; }
         if (keyboard.preferencesChanged()) { replaceKeyboard(false); return; }
         EditorInfo info = getCurrentInputEditorInfo();
-        keyboard.configure(chinese, nineKey, enterLabel(info), privateEditor);
-        if (info != null) {
-            int type = info.inputType & InputType.TYPE_MASK_CLASS;
-            if (type == InputType.TYPE_CLASS_NUMBER || type == InputType.TYPE_CLASS_PHONE || type == InputType.TYPE_CLASS_DATETIME) {
-                keyboard.showNumbers(type == InputType.TYPE_CLASS_PHONE,
-                        (info.inputType & InputType.TYPE_NUMBER_FLAG_SIGNED) != 0,
-                        (info.inputType & InputType.TYPE_NUMBER_FLAG_DECIMAL) != 0);
-            }
-        }
+        keyboard.configure(chinese, nineKey, enterLabel(info), privateEditor, info == null ? 0 : info.inputType);
     }
 
     private void replaceKeyboard(boolean settings) {
@@ -463,7 +476,7 @@ public final class YagamiInputMethodService extends InputMethodService implement
         File file = new File(getFilesDir(), name);
         String version = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
         String key = "asset_" + name;
-        if (file.isFile() && version.equals(getSharedPreferences("assets", MODE_PRIVATE).getString(key, ""))) { return file; }
+        if (file.isFile() && version.equals(LocalStorage.open(this, "assets").getString(key, ""))) { return file; }
         File temp = new File(getFilesDir(), name + ".tmp");
         try (InputStream source = getAssets().open(name); FileOutputStream target = new FileOutputStream(temp)) {
             byte[] buffer = new byte[65536];
@@ -471,7 +484,7 @@ public final class YagamiInputMethodService extends InputMethodService implement
             while ((count = source.read(buffer)) != -1) { target.write(buffer, 0, count); }
         }
         if (!temp.renameTo(file)) { throw new IllegalStateException("无法安装词库"); }
-        getSharedPreferences("assets", MODE_PRIVATE).edit().putString(key, version).apply();
+        LocalStorage.open(this, "assets").edit().putString(key, version).apply();
         return file;
     }
 
