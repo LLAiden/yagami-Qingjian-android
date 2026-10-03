@@ -30,7 +30,8 @@ final class ClipboardPanel extends LinearLayout {
         LinearLayout header = new LinearLayout(getContext());
         header.setGravity(Gravity.CENTER_VERTICAL);
         TextView title = new TextView(getContext());
-        title.setText(privateEditor ? "剪贴板 · 隐私输入" : "剪贴板 · 普通记录保留 24 小时");
+        title.setText(privateEditor ? "剪贴板 · 隐私输入" : !store.historyEnabled() ? "剪贴板 · 历史已关闭"
+                : !store.persistent() ? "剪贴板 · 加密不可用，仅本次会话" : "剪贴板 · 加密保存 24 小时");
         title.setTextColor(style.text);
         title.setTextSize(13);
         header.addView(title, new LayoutParams(0, style.dp(style.toolbarHeight()), 1));
@@ -43,7 +44,7 @@ final class ClipboardPanel extends LinearLayout {
         items.setOrientation(VERTICAL);
         scroll.addView(items);
         String current = store.current();
-        List<ClipboardStore.Entry> entries = privateEditor ? java.util.Collections.emptyList() : store.entries();
+        List<ClipboardStore.Entry> entries = privateEditor || !store.historyEnabled() ? java.util.Collections.emptyList() : store.entries();
         ClipboardStore.Entry currentEntry = null;
         for (ClipboardStore.Entry entry : entries) {
             if (entry.text.equals(current)) { currentEntry = entry; break; }
@@ -71,11 +72,13 @@ final class ClipboardPanel extends LinearLayout {
         LinearLayout row = new LinearLayout(getContext());
         row.setGravity(Gravity.CENTER_VERTICAL);
         TextView content = style.key(text, false, () -> paste.accept(text));
+        boolean masked = label.equals("当前复制") && (privateEditor || store.currentSensitive());
+        if (masked) { content.setText("当前敏感内容 · 点击粘贴"); }
         content.setTextSize(15);
         content.setGravity(Gravity.CENTER_VERTICAL);
         content.setMaxLines(2);
         content.setPadding(style.dp(10), 0, style.dp(10), 0);
-        content.setContentDescription("粘贴 " + label + " " + text);
+        content.setContentDescription(masked ? "粘贴当前敏感内容" : "粘贴 " + label + " " + text);
         row.addView(content, new LayoutParams(0, style.dp(60), 1));
         if (entry != null) {
             TextView pin = style.key(entry.pinned ? "取消固定" : "固定", true, () -> { store.pin(entry); refresh(); });
