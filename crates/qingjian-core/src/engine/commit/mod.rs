@@ -453,7 +453,11 @@ impl Engine {
     pub(super) fn consumed_by(&self, candidate: &Candidate) -> (usize, String) {
         let keys = self.composition.scope();
         if self.nine_key.is_some() {
-            let code = super::nine_key::encode(&candidate.syllables.join(""));
+            let reading = candidate
+                .reading
+                .clone()
+                .unwrap_or_else(|| candidate.syllables.join(""));
+            let code = super::nine_key::encode(&reading);
             let consumed = code.len().min(keys.len());
             return (consumed, keys[..consumed].to_owned());
         }
