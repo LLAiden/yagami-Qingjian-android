@@ -301,6 +301,8 @@ public final class YagamiInputMethodService extends InputMethodService implement
         boolean target = chinese;
         enqueue(engine -> { String text = finish(engine); engine.setNineKey(target); return text.isEmpty() ? null : text; });
         configure();
+        // 用户主动切换语言时使用文字页，数字输入框的默认布局不能吞掉这次选择。
+        if (keyboard != null && keyboard.page() == 1) { keyboard.showLetters(); }
     }
 
     @Override public void numbers() {
